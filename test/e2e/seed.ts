@@ -65,6 +65,14 @@ export function staff(e: E2E, s: StorefrontInfo, perms: string[], over: Record<s
   };
 }
 
+/** The rating served for `s`, read as the salon console reads it. */
+export async function rating(e: E2E, s: StorefrontInfo) {
+  const who = staff(e, s, ['storefront-edit.read']);
+  const res = await e.http().get('/v1/storefront/reviews/aggregate').set('authorization', who.auth);
+  if (res.status !== 200) throw new Error(`aggregate failed: ${res.status} ${JSON.stringify(res.body)}`);
+  return res.body;
+}
+
 /** An HQ token: platform_admin actor, no tenant. */
 export function hq(e: E2E, perms = ['storefront.review_moderation'], actor = 'platform_admin') {
   const sub = uuidv7();

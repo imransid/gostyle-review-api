@@ -13,7 +13,6 @@ const EXPECTED = [
   'POST /v1/public/reviews/{token}',
   'GET /v1/public/review-invites/{token}',
   'GET /v1/public/storefronts/{storefrontId}/reviews',
-  'GET /v1/public/storefronts/{storefrontId}/rating',
   'GET /v1/storefront/reviews',
   'GET /v1/storefront/reviews/aggregate',
   'POST /v1/storefront/reviews/{reviewId}/reply',

@@ -361,3 +361,24 @@ off. Every route keeps its guards; the docs show route shapes (the
 
 **To use:** `SWAGGER_ENABLED=true docker stack deploy ...`, test, then deploy
 again without it (the stack defaults it to `false`).
+
+## D28. No public rating route (after P5)
+
+**Plan says:** `GET /v1/public/storefronts/:id/rating` for the app and web.
+
+**Removed:** nothing calls it. The platform never had a public rating route,
+and the app reads a salon's rating from customer-api, whose copy
+(`ReviewRating`, fed by `rating.summary.changed.v1` and backfilled from
+`GET /internal/ratings`) already carries the average, count, per-language
+counts and histogram. A second public read of the same numbers would be one
+more route to throttle, document and keep in step, for no caller.
+
+**What stays:** the salon console's `GET /v1/storefront/reviews/aggregate`
+(the console calls it today), `GET /internal/ratings` (customer-api's backfill
+and repair) and `POST /internal/ratings/recompute` (ops, and the P6 runbook).
+The e2e specs now read the served rating through the console aggregate; it is
+the same stored summary.
+
+**To change:** if a front end ever needs it, the handler was a single
+`findUnique` on `rating_summary` by storefront id, answered through
+`aggregateOf()` like the console aggregate.

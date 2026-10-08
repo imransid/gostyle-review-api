@@ -4,7 +4,6 @@ import { ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 import { SubmitReviewCommand } from '../application/commands/submit-review/submit-review.command';
 import { GetInviteQuery } from '../application/queries/get-invite/get-invite.query';
-import { GetRatingSummaryQuery } from '../application/queries/get-rating-summary/get-rating-summary.query';
 import { ListPublicReviewsQuery } from '../application/queries/list-public-reviews/list-public-reviews.query';
 import { PublicReviewsQueryDto, SubmitReviewDto } from './dto/review.dto';
 
@@ -72,12 +71,5 @@ export class PublicReviewsController {
     return this.queries.execute(
       new ListPublicReviewsQuery({ storefrontId, offset: q.offset, limit: q.limit, language: q.language }),
     );
-  }
-
-  @Get('storefronts/:storefrontId/rating')
-  @ApiOperation({ summary: 'The rating: average (one decimal, null with no reviews), count, per language, 1-5 histogram.' })
-  @ApiResponse({ status: 200, description: '{ average, count, countByLanguage, histogram }' })
-  rating(@Param('storefrontId', ParseUUIDPipe) storefrontId: string) {
-    return this.queries.execute(new GetRatingSummaryQuery(storefrontId));
   }
 }

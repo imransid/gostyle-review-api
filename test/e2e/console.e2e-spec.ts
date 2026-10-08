@@ -1,8 +1,8 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { uuidv7 } from '../../src/review/domain/shared/uuidv7';
 import { platformToken } from '../support/tokens';
-import { bootApp, JWT_SECRET, reset, type E2E } from './app';
-import { ALL_STAFF, review, staff, storefront } from './seed';
+import { bootApp, JWT_SECRET, KEYS, reset, type E2E } from './app';
+import { ALL_STAFF, rating, review, staff, storefront } from './seed';
 
 let e: E2E;
 beforeAll(async () => {
@@ -94,16 +94,38 @@ describe('GET /v1/storefront/reviews and /aggregate', () => {
     expect(hidden.body.data.map((r: any) => r.id)).toEqual([b]);
   });
 
-  it('aggregate is the same summary the public sees', async () => {
+  it('aggregate is the same summary customer-api receives', async () => {
     const s = storefront(e);
     await review(e, s, { rating: 4, language: 'EN' });
     await review(e, s, { rating: 3, language: 'AR' });
     const who = staff(e, s, ['storefront-edit.read']);
     const res = await e.http().get('/v1/storefront/reviews/aggregate').set('authorization', who.auth);
-    const pub = await e.http().get(`/v1/public/storefronts/${s.storefrontId}/rating`);
+    const sent = (
+      await e.http().get(`/internal/ratings?storefrontIds=${s.storefrontId}`).set('x-service-key', KEYS.ops)
+    ).body.data[0];
     expect(res.status).toBe(200);
-    expect(res.body).toEqual(pub.body);
+    const { average, reviewCount: count, countByLanguage, histogram } = sent;
+    expect(res.body).toEqual({ average, count, countByLanguage, histogram });
     expect(res.body).toMatchObject({ average: 3.5, count: 2 });
+  });
+
+  it('the rating: one decimal, per language, every histogram key; null average with no reviews', async () => {
+    const s = storefront(e);
+    expect(await rating(e, s)).toEqual({
+      average: null,
+      count: 0,
+      countByLanguage: { EN: 0, AR: 0 },
+      histogram: { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0 },
+    });
+    await review(e, s, { rating: 5, language: 'EN' });
+    await review(e, s, { rating: 4, language: 'AR' });
+    await review(e, s, { rating: 4, language: 'EN' });
+    expect(await rating(e, s)).toEqual({
+      average: 4.3,
+      count: 3,
+      countByLanguage: { EN: 2, AR: 1 },
+      histogram: { '1': 0, '2': 0, '3': 0, '4': 2, '5': 1 },
+    });
   });
 });
 

@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { bootApp, KEYS, reset, type E2E } from './app';
-import { review, storefront } from './seed';
+import { rating, review, storefront } from './seed';
 
 let e: E2E;
 beforeAll(async () => {
@@ -64,7 +64,7 @@ describe('POST /internal/ratings/recompute and GET /internal/outbox', () => {
     await e.prisma.ratingSummary.updateMany({ data: { reviewCount: 2, ratingSum: 8, star4: 2, countEn: 2 } });
     const fixed = await e.http().post('/internal/ratings/recompute').set('x-service-key', KEYS.ops);
     expect(fixed.body).toMatchObject({ checked: 1, repaired: 1 });
-    expect((await e.http().get(`/v1/public/storefronts/${s.storefrontId}/rating`)).body.count).toBe(1);
+    expect((await rating(e, s)).count).toBe(1);
   });
 
   it('outbox stats for ops', async () => {

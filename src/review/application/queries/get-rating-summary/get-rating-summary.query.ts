@@ -1,7 +1,3 @@
-export class GetRatingSummaryQuery {
-  constructor(public readonly storefrontId: string) {}
-}
-
 /** customer-api's backfill and repair: by ids, or every summary page by page. */
 export class GetRatingSummariesQuery {
   constructor(

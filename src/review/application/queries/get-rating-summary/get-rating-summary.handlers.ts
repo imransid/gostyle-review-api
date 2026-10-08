@@ -2,29 +2,13 @@ import { IQueryHandler, QueryHandler } from '@nestjs/cqrs';
 import { PrismaService } from '../../../../shared/prisma/prisma.service';
 import type { ReviewAggregate } from '../../../domain/services/review-rules';
 import { aggregateOf, countsOf } from '../views';
-import {
-  GetConsoleAggregateQuery,
-  GetRatingSummariesQuery,
-  GetRatingSummaryQuery,
-} from './get-rating-summary.query';
+import { GetConsoleAggregateQuery, GetRatingSummariesQuery } from './get-rating-summary.query';
 
 /**
- * The public rating: { average, count, countByLanguage, histogram }.
- * From the STORED summary. A storefront nobody has reviewed has no row yet and
+ * The salon's rating: { average, count, countByLanguage, histogram }.
+ * From the STORED summary. A branch nobody has reviewed has no row yet and
  * answers the empty aggregate: average null (never 0), every bar present.
  */
-@QueryHandler(GetRatingSummaryQuery)
-export class GetRatingSummaryHandler implements IQueryHandler<GetRatingSummaryQuery, ReviewAggregate> {
-  constructor(private readonly prisma: PrismaService) {}
-
-  async execute(q: GetRatingSummaryQuery): Promise<ReviewAggregate> {
-    const row = await this.prisma.ratingSummary.findUnique({
-      where: { subjectType_subjectId: { subjectType: 'STOREFRONT', subjectId: q.storefrontId } },
-    });
-    return aggregateOf(row);
-  }
-}
-
 @QueryHandler(GetConsoleAggregateQuery)
 export class GetConsoleAggregateHandler implements IQueryHandler<GetConsoleAggregateQuery, ReviewAggregate> {
   constructor(private readonly prisma: PrismaService) {}

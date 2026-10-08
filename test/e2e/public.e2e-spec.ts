@@ -104,7 +104,7 @@ describe('GET /v1/public/review-invites/:token', () => {
   });
 });
 
-describe('GET /v1/public/storefronts/:id/reviews and /rating', () => {
+describe('GET /v1/public/storefronts/:id/reviews', () => {
   it('shows PUBLISHED reviews only, newest first, blank names as "Verified customer", replies without author', async () => {
     const s = storefront(e);
     const hiddenId = await review(e, s, { rating: 1, language: 'EN', comment: 'hidden one' });
@@ -127,29 +127,13 @@ describe('GET /v1/public/storefronts/:id/reviews and /rating', () => {
     expect(ar.body.data.map((r: any) => r.id)).toEqual([secondId]);
   });
 
-  it('the rating: one decimal, per language, every histogram key; null average with no reviews', async () => {
-    const s = storefront(e);
-    const empty = await e.http().get(`/v1/public/storefronts/${s.storefrontId}/rating`);
-    expect(empty.body).toEqual({
-      average: null,
-      count: 0,
-      countByLanguage: { EN: 0, AR: 0 },
-      histogram: { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0 },
-    });
-    await review(e, s, { rating: 5, language: 'EN' });
-    await review(e, s, { rating: 4, language: 'AR' });
-    await review(e, s, { rating: 4, language: 'EN' });
-    const r = await e.http().get(`/v1/public/storefronts/${s.storefrontId}/rating`);
-    expect(r.body).toEqual({
-      average: 4.3,
-      count: 3,
-      countByLanguage: { EN: 2, AR: 1 },
-      histogram: { '1': 0, '2': 0, '3': 0, '4': 2, '5': 1 },
-    });
+  it('refuses a storefront id that is not a uuid', async () => {
+    const res = await e.http().get('/v1/public/storefronts/not-a-uuid/reviews');
+    expect(res.status).toBe(400);
   });
 
-  it('refuses a storefront id that is not a uuid', async () => {
-    const res = await e.http().get('/v1/public/storefronts/not-a-uuid/rating');
-    expect(res.status).toBe(400);
+  it('has no public rating route: the app reads ratings from customer-api (D28)', async () => {
+    const res = await e.http().get(`/v1/public/storefronts/${uuidv7()}/rating`);
+    expect(res.status).toBe(404);
   });
 });

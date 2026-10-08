@@ -19,7 +19,6 @@ import { GetInviteHandler } from './application/queries/get-invite/get-invite.ha
 import {
   GetConsoleAggregateHandler,
   GetRatingSummariesHandler,
-  GetRatingSummaryHandler,
 } from './application/queries/get-rating-summary/get-rating-summary.handlers';
 import { ListConsoleReviewsHandler } from './application/queries/list-console-reviews/list-console-reviews.handler';
 import { ListPublicReviewsHandler } from './application/queries/list-public-reviews/list-public-reviews.handler';
@@ -88,7 +87,6 @@ const COMMAND_HANDLERS = [
 const QUERY_HANDLERS = [
   GetInviteHandler,
   ListPublicReviewsHandler,
-  GetRatingSummaryHandler,
   GetRatingSummariesHandler,
   ListConsoleReviewsHandler,
   GetConsoleAggregateHandler,

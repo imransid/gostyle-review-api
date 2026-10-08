@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { uuidv7 } from '../../src/review/domain/shared/uuidv7';
 import { bootApp, reset, type E2E } from './app';
-import { ALL_STAFF, hq, NOTE, review, staff, storefront } from './seed';
+import { ALL_STAFF, hq, NOTE, rating, review, staff, storefront } from './seed';
 
 let e: E2E;
 beforeAll(async () => {
@@ -64,7 +64,7 @@ describe('deciding', () => {
     expect(res.body).toMatchObject({ id: reportId, status: 'UPHELD', reviewState: 'HIDDEN', resolvedById: me.sub, resolutionNote: NOTE });
     const pub = await e.http().get(`/v1/public/storefronts/${s.storefrontId}/reviews`);
     expect(pub.body.total).toBe(0);
-    expect((await e.http().get(`/v1/public/storefronts/${s.storefrontId}/rating`)).body.average).toBeNull();
+    expect((await rating(e, s)).average).toBeNull();
     const twice = await e.http().post(`/v1/platform/review-reports/${reportId}/dismiss`).set('authorization', me.auth).send({ note: NOTE });
     expect([twice.status, twice.body.error.code]).toEqual([409, 'REPORT_TRANSITION_INVALID']);
     expect(reviewId).toBeTruthy();
@@ -76,7 +76,7 @@ describe('deciding', () => {
     expect([short.status, short.body.error.code]).toEqual([422, 'VALIDATION_FAILED']);
     const res = await e.http().post(`/v1/platform/review-reports/${reportId}/dismiss`).set('authorization', hq(e).auth).send({ note: NOTE });
     expect(res.body).toMatchObject({ status: 'DISMISSED', reviewState: 'PUBLISHED' });
-    expect((await e.http().get(`/v1/public/storefronts/${s.storefrontId}/rating`)).body.count).toBe(1);
+    expect((await rating(e, s)).count).toBe(1);
   });
 
   it('hide, restore, remove; REMOVED is final', async () => {
@@ -87,9 +87,9 @@ describe('deciding', () => {
       e.http().post(`/v1/platform/reviews/${id}/${action}`).set('authorization', me.auth).send({ note });
     const hidden = await post('hide');
     expect(hidden.body).toMatchObject({ reviewId: id, state: 'HIDDEN', moderatedById: me.sub, moderationNote: NOTE });
-    expect((await e.http().get(`/v1/public/storefronts/${s.storefrontId}/rating`)).body.count).toBe(0);
+    expect((await rating(e, s)).count).toBe(0);
     expect((await post('restore')).body.state).toBe('PUBLISHED');
-    expect((await e.http().get(`/v1/public/storefronts/${s.storefrontId}/rating`)).body.count).toBe(1);
+    expect((await rating(e, s)).count).toBe(1);
     expect((await post('remove')).body.state).toBe('REMOVED');
     for (const action of ['restore', 'hide', 'remove']) {
       const r = await post(action);

@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { computeAggregate, type RatedReview } from '../../src/review/domain/services/review-rules';
 import { bootApp, KEYS, reset, type E2E } from './app';
-import { ALL_STAFF, hq, NOTE, review, staff, storefront } from './seed';
+import { ALL_STAFF, hq, NOTE, rating, review, staff, storefront } from './seed';
 
 let e: E2E;
 beforeAll(async () => {
@@ -54,7 +54,7 @@ describe('P4 done-when: stored summaries equal a full recompute on seeded data',
         SELECT rating::int AS rating, language::text AS language
           FROM review WHERE storefront_id = ${s.storefrontId}::uuid AND state = 'PUBLISHED'`;
       const expected = computeAggregate(rows);
-      const served = (await e.http().get(`/v1/public/storefronts/${s.storefrontId}/rating`)).body;
+      const served = await rating(e, s);
       expect(served, s.storefrontId).toEqual(expected);
       const stored = await e.prisma.ratingSummary.findUnique({
         where: { subjectType_subjectId: { subjectType: 'STOREFRONT', subjectId: s.storefrontId } },
