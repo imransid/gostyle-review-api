@@ -29,6 +29,269 @@ datasource db {
   provider = "postgresql"
 }
 
+// ============================================================ enums
+//
+// Type names are SUFFIXED (review_state, not review): Postgres keeps tables
+// and enum types in one namespace, and a type named like a table cannot be
+// created.
+
+/// Which booking system minted the booking id.
+enum BookingSource {
+  platform
+  booking_api
+
+  @@map("booking_source")
+}
+
+/// PUBLISHED <-> HIDDEN, either -> REMOVED, REMOVED is final. Only PUBLISHED
+/// is shown and counted.
+enum ReviewState {
+  PUBLISHED
+  HIDDEN
+  REMOVED
+
+  @@map("review_state")
+}
+
+/// The language the customer WROTE IN.
+enum ReviewLanguage {
+  EN
+  AR
+
+  @@map("review_language")
+}
+
+/// A closed list of VALIDITY claims. Nothing means "unfair" on purpose.
+enum ReviewReportReason {
+  WRONG_BRANCH_OR_BUSINESS
+  OFF_TOPIC_OR_SPAM
+  HARASSMENT
+  COMPETITOR_PROMOTION
+  FAKE_NO_VISIT
+
+  @@map("review_report_reason")
+}
+
+/// OPEN -> UPHELD | DISMISSED. Both decisions are terminal.
+enum ReviewReportStatus {
+  OPEN
+  UPHELD
+  DISMISSED
+
+  @@map("review_report_status")
+}
+
+/// Where the invite message stands. The token itself is never stored.
+///
+/// PENDING      minted, send not attempted yet
+/// SENT         the channel accepted it; never sent again
+/// RETRYING     a send DEFINITELY failed; a job rotates the token and retries
+/// UNKNOWN      a send timed out: it may have arrived, so it is never retried
+/// FAILED       permanently refused, or out of retries
+/// NO_CONTACT   nobody reachable (walk-in, no phone, contact owner unknown)
+enum InviteSendStatus {
+  PENDING
+  SENT
+  RETRYING
+  UNKNOWN
+  FAILED
+  NO_CONTACT
+
+  @@map("invite_send_status")
+}
+
+/// What a rating summary is about. STAFF arrives with stylist ratings.
+enum RatingSubjectType {
+  STOREFRONT
+
+  @@map("rating_subject_type")
+}
+
+// ============================================================ review
+
+/// One row per review. Written only by redeeming an invite.
+model Review {
+  id           String @id @db.Uuid
+  tenantId     String @map("tenant_id") @db.Uuid
+  storefrontId String @map("storefront_id") @db.Uuid
+  branchId     String @map("branch_id") @db.Uuid
+
+  bookingSource BookingSource @map("booking_source")
+  bookingId     String        @map("booking_id") @db.Uuid
+
+  /// The invite this review redeemed. One review per invite.
+  inviteId String       @unique @map("invite_id") @db.Uuid
+  invite   ReviewInvite @relation(fields: [inviteId], references: [id], onDelete: Restrict)
+
+  /// Denormalised, never an identity: the same person is a different customer
+  /// id at every salon. Blanked by EraseCustomerReviews.
+  customerId String? @map("customer_id") @db.Uuid
+
+  /// 1..5, in the domain AND by CHECK review_rating_range.
+  rating   Int            @db.SmallInt
+  comment  String?        @db.Text
+  language ReviewLanguage
+
+  /// COPIED AT WRITE TIME, never joined. Stored as entered (may be empty);
+  /// rendered as "Verified customer" at read time.
+  authorDisplayName String @map("author_display_name")
+
+  state ReviewState @default(PUBLISHED)
+
+  moderatedById  String?   @map("moderated_by_id") @db.Uuid
+  moderatedAt    DateTime? @map("moderated_at") @db.Timestamptz(6)
+  moderationNote String?   @map("moderation_note") @db.Text
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  reply   ReviewReply?
+  reports ReviewReport[]
+
+  /// ONE REVIEW PER BOOKING, EVER. A plain unique, valid only because this
+  /// table has no deleted_at: REMOVED is a state, so a removed review still
+  /// occupies its booking.
+  @@unique([bookingSource, bookingId], map: "review_booking_key")
+  /// The public list and the recompute: storefront, visible state, newest.
+  @@index([storefrontId, state, createdAt], map: "review_storefront_state_created_idx")
+  @@index([tenantId, branchId, createdAt], map: "review_tenant_branch_created_idx")
+  @@index([customerId], map: "review_customer_idx")
+  @@map("review")
+}
+
+/// The salon's answer. At most one per review; HARD deleted.
+model ReviewReply {
+  id       String @id @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+
+  reviewId String @unique @map("review_id") @db.Uuid
+  review   Review @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+
+  body String @db.Text
+
+  /// Recorded, never rendered: the public page says "Response from the salon".
+  authorId   String    @map("author_id") @db.Uuid
+  editedById String?   @map("edited_by_id") @db.Uuid
+  editedAt   DateTime? @map("edited_at") @db.Timestamptz(6)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([tenantId], map: "review_reply_tenant_idx")
+  @@map("review_reply")
+}
+
+/// The only way to write a review.
+model ReviewInvite {
+  id           String @id @db.Uuid
+  tenantId     String @map("tenant_id") @db.Uuid
+  storefrontId String @map("storefront_id") @db.Uuid
+  branchId     String @map("branch_id") @db.Uuid
+
+  bookingSource BookingSource @map("booking_source")
+  bookingId     String        @map("booking_id") @db.Uuid
+
+  /// SHA-256 hex of the token, never the token.
+  tokenHash String @unique(map: "review_invite_token_hash_key") @map("token_hash")
+
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz(6)
+  usedAt    DateTime? @map("used_at") @db.Timestamptz(6)
+
+  /// Whose booking this was, so the review can copy their name at write time.
+  /// The name and the phone are NOT stored: both are read when needed.
+  customerId String? @map("customer_id") @db.Uuid
+
+  /// Display snapshots from the storefront directory at mint time, for the
+  /// review form and the HQ queue. Not personal data; may lag a rename.
+  salonName      String? @map("salon_name")
+  storefrontSlug String? @map("storefront_slug")
+  /// The tenant's language at mint time ("en", "ar-AE"). Picks the template.
+  locale         String?
+
+  sendStatus   InviteSendStatus @default(PENDING) @map("send_status")
+  sendAttempts Int              @default(0) @map("send_attempts") @db.SmallInt
+  sentAt       DateTime?        @map("sent_at") @db.Timestamptz(6)
+  /// Why the last send did not land. Never contains the token or the body.
+  lastSendError String?         @map("last_send_error")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  review Review?
+
+  /// ONE INVITE PER BOOKING, EVER. A redelivered completion finds this.
+  @@unique([bookingSource, bookingId], map: "review_invite_booking_key")
+  @@index([expiresAt], map: "review_invite_expires_idx")
+  @@index([tenantId], map: "review_invite_tenant_idx")
+  @@map("review_invite")
+}
+
+/// A salon's complaint about a review. Filing one hides nothing.
+model ReviewReport {
+  id       String @id @db.Uuid
+  tenantId String @map("tenant_id") @db.Uuid
+
+  reviewId String @map("review_id") @db.Uuid
+  review   Review @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+
+  reason ReviewReportReason
+  note   String?            @db.Text
+  status ReviewReportStatus @default(OPEN)
+
+  reportedById   String    @map("reported_by_id") @db.Uuid
+  resolvedById   String?   @map("resolved_by_id") @db.Uuid
+  resolvedAt     DateTime? @map("resolved_at") @db.Timestamptz(6)
+  resolutionNote String?   @map("resolution_note") @db.Text
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // ONE OPEN REPORT PER REVIEW is a PARTIAL unique index
+  // (review_report_one_open_per_review) in the migration SQL.
+  /// The HQ queue: filter by status, oldest first.
+  @@index([status, createdAt], map: "review_report_status_created_idx")
+  @@index([reviewId], map: "review_report_review_idx")
+  @@index([tenantId], map: "review_report_tenant_idx")
+  @@map("review_report")
+}
+
+// ============================================================ read model
+
+/// The stored rating. Updated in the SAME transaction as every change to a
+/// visible review, and recomputed nightly. Average = rating_sum / review_count,
+/// rounded at read, null when the count is 0.
+model RatingSummary {
+  subjectType RatingSubjectType @map("subject_type")
+  subjectId   String            @map("subject_id") @db.Uuid
+
+  tenantId String @map("tenant_id") @db.Uuid
+  /// The branch the storefront belongs to (storefront is one per branch), so
+  /// the console can find its summary from the branch it is working in.
+  branchId String @map("branch_id") @db.Uuid
+
+  reviewCount Int @default(0) @map("review_count")
+  ratingSum   Int @default(0) @map("rating_sum")
+
+  star1 Int @default(0) @map("star_1")
+  star2 Int @default(0) @map("star_2")
+  star3 Int @default(0) @map("star_3")
+  star4 Int @default(0) @map("star_4")
+  star5 Int @default(0) @map("star_5")
+
+  countEn Int @default(0) @map("count_en")
+  countAr Int @default(0) @map("count_ar")
+
+  /// Bumped on every change. Consumers apply a change only when it is newer
+  /// than what they hold, so a retried old event cannot overwrite a new one.
+  version BigInt @default(0)
+
+  updatedAt        DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+  lastRecomputedAt DateTime? @map("last_recomputed_at") @db.Timestamptz(6)
+
+  @@id([subjectType, subjectId], map: "rating_summary_pkey")
+  @@index([tenantId, branchId], map: "rating_summary_tenant_branch_idx")
+  @@map("rating_summary")
+}
+
 // ============================================================ messaging
 
 /// Events waiting to leave, written in the same transaction as the change.

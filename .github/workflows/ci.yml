@@ -36,3 +36,11 @@ jobs:
       # (or the reverse) fails here, not on the first deploy.
       - run: psql "postgresql://review:review@127.0.0.1:5432/review" -c 'CREATE DATABASE review_shadow'
       - run: yarn prisma:check
+      # The constraints, made to fail on a real database, and the repositories
+      # and handlers against it.
+      - run: yarn test:db
+        env:
+          TEST_DATABASE_URL: postgresql://review:review@127.0.0.1:5432/review_test
+      - run: yarn proof
+        env:
+          PROOF_DATABASE_URL: postgresql://review:review@127.0.0.1:5432/review_test

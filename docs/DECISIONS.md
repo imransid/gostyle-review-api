@@ -148,3 +148,64 @@ second message would be worse than none. SENT is terminal.
 
 **To change:** `INVITE_SEND_RETRY_ATTEMPTS=0` gives the platform's exact
 behaviour (a failed send is recorded as FAILED and never re-sent).
+
+## D11. The summary is recounted under a lock, not patched with a delta (P3)
+
+**Plan says:** a stored summary "updated in the same transaction as each
+review change", with a nightly recompute to catch drift.
+
+**Choice:** in that same transaction the projector LOCKS the storefront's
+`rating_summary` row (`SELECT … FOR UPDATE`, creating it first if needed),
+recounts the storefront's PUBLISHED reviews from the rows, and replaces the
+counts. The domain's `visibilityDelta` still runs: a zero delta (a reply, a
+report, HIDDEN → REMOVED) skips the write, and a non-zero one is the
+expectation the recount is checked against, so drift from anywhere else is
+logged the moment it is met.
+
+**Why:** a `n = n + delta` update is fast but trusts that the row was right
+before; a recount under the lock cannot drift through this path, and the lock
+serialises concurrent writers per storefront (20 concurrent submits on one
+storefront end at count 20, version 20: `test/db/rating-summary.spec.ts`). The
+recount reads the `(storefront_id, state, created_at)` index the platform
+built for exactly this query.
+
+**To change:** replace `replace(...)` in `RatingProjector.onReviewChange` with
+an additive update of `delta`; the nightly recompute stays as the repair.
+
+## D12. The relay claims with a lease instead of holding a transaction (P3)
+
+booking-api's `OutboxRelay` delivers inside the `FOR UPDATE SKIP LOCKED`
+transaction, holding row locks and a pooled connection across every HTTP call.
+Here one statement claims a batch by pushing `next_attempt_at` 60 s ahead
+(still `SKIP LOCKED`, so concurrent relays get disjoint batches), delivery
+happens outside any transaction, and each row's outcome is its own update.
+Retries back off 1 s, 2 s, 4 s … capped at 10 min, for 20 attempts (about two
+hours); then the row is "stuck" and counted by `OutboxRelay.stats()`. The
+relay runs as a BullMQ job scheduler (`review-outbox`, every
+`OUTBOX_RELAY_INTERVAL_MS`), as asked.
+
+## D13. Salon ownership is checked on the review row, not through a branch directory (P3)
+
+The platform walks branch → storefront → review with three tenant-scoped
+reads (`loadReviewForSalon`). review-service owns no branch or storefront
+table; each review row carries `tenant_id`, `branch_id` and `storefront_id`,
+and a storefront is one per branch. So the walk is one query:
+`WHERE id = :review AND tenant_id = :jwtTenant AND branch_id = :branch`. Same
+answer for every case that matters (another salon, another branch, a guessed
+id: 404), with one difference: the platform could answer `BRANCH_NOT_FOUND`
+or `STOREFRONT_NOT_FOUND`; here those cases are `REVIEW_NOT_FOUND`.
+
+## D14. Contact lookup owner per booking system (P3, open question §9)
+
+**Question:** after the move, who answers name and phone for a customer?
+
+**Choice:** for `platform` bookings, gostyle-platform answers through a new
+internal route (added in P5). For `booking_api` bookings the customer id is a
+customer-api account, and there is no agreed owner, so the contact directory
+answers "no contact": the invite is still minted (exactly one), its
+`send_status` becomes `NO_CONTACT`, nothing is sent, and the reviewer may type
+their own name. Nothing fails.
+
+**To change:** give `PlatformDirectoryClient.find` (or a second adapter behind
+`CONTACT_DIRECTORY`) a `booking_api` branch once customer-api exposes contact
+details to services.

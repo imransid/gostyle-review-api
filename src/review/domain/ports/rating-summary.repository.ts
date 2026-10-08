@@ -3,6 +3,7 @@ import type { TxHandle } from './unit-of-work.port';
 
 export const RATING_SUMMARY_REPOSITORY = Symbol('RATING_SUMMARY_REPOSITORY');
 
+/** One storefront's summary row. A storefront is one per branch. */
 export interface SummaryKey {
   storefrontId: string;
   tenantId: string;
@@ -18,21 +19,29 @@ export interface SummarySnapshot extends SummaryKey {
 
 export interface RatingSummaryRepository {
   /**
-   * Apply a delta atomically (one UPDATE ... SET n = n + d), creating the row
-   * if needed, and return the result. Safe under concurrent writers for the
-   * same storefront without a read-modify-write.
+   * Lock the storefront's row for this transaction, creating it (all zeros)
+   * if it does not exist yet, and return what it holds.
+   *
+   * THE LOCK IS WHAT MAKES THE SUMMARY EXACT UNDER CONCURRENCY: every writer
+   * for a storefront takes it before counting, so two reviews landing at once
+   * are counted one after the other, never both from the same stale snapshot.
    */
-  applyDelta(key: SummaryKey, delta: RatingCounts, tx?: TxHandle): Promise<SummarySnapshot>;
-
-  /** Overwrite with recomputed counts (the nightly repair). */
-  replace(key: SummaryKey, counts: RatingCounts, tx?: TxHandle): Promise<SummarySnapshot>;
-
-  /** Lock the row (creating it if absent) so a recompute reads a stable set. */
   lock(key: SummaryKey, tx: TxHandle): Promise<SummarySnapshot>;
 
-  /** Counts from the review rows themselves: PUBLISHED only. */
+  /** Counts straight from the review rows: PUBLISHED only. */
   countVisible(storefrontId: string, tx?: TxHandle): Promise<RatingCounts>;
 
-  /** Every storefront that has a summary row or any review. */
+  /** Overwrite the row (bumping its version) and return the result. */
+  replace(
+    key: SummaryKey,
+    counts: RatingCounts,
+    opts: { recomputed: boolean },
+    tx: TxHandle,
+  ): Promise<SummarySnapshot>;
+
+  /** Mark a row as checked by the recompute without changing it. */
+  touchRecomputed(key: SummaryKey, tx: TxHandle): Promise<void>;
+
+  /** Every storefront with a summary row or any review, oldest-checked first. */
   listSubjects(tx?: TxHandle): Promise<SummaryKey[]>;
 }
