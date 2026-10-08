@@ -1,4 +1,4 @@
-# Swarm stack. Same prefixed names as docker-compose.yml.
+# Swarm stack for gostyle-review-api. Same prefixed names as docker-compose.yml.
 #
 # DEPLOY ORDER (Swarm has no "completed successfully" dependency):
 #   1. export REVIEW_IMAGE_TAG=sha-<short> INVITE_SENDER=log REVIEW_PUBLIC_BASE_URL=https://<domain>/review
@@ -24,6 +24,13 @@
 # The platform JWT secret is review_jwt_access_secret, copied from gostyle_api's
 # JWT_ACCESS_SECRET. Its fingerprint in the review-app boot log must match
 # gostyle-api's.
+#
+# Other services reach this one as http://review-app:3352 on gostyle-net
+# (the alias below). Addresses of the services it calls, checked on the
+# server 2026-10-08:
+#   gostyle_api:3849             platform (gostyle-api)
+#   gostyle-consumer_api:8000    customer-api (add this host to its ALLOWED_HOSTS)
+#   push-app:3351                push-notification-service
 
 services:
   review-db:
@@ -49,12 +56,7 @@ services:
     image: redis:7-alpine
     # The password from a secret, read at start; never on the command line of
     # the stack file.
-    entrypoint:
-      [
-        'sh',
-        '-c',
-        'exec redis-server --appendonly yes --requirepass "$$(cat /run/secrets/review_redis_password)"',
-      ]
+    entrypoint: ["sh", "-c", "exec redis-server --appendonly yes --requirepass \"$$(cat /run/secrets/review_redis_password)\""]
     secrets:
       - review_redis_password
     volumes:
@@ -70,12 +72,12 @@ services:
     image: ghcr.io/entity-tech-solutions/review-service:${REVIEW_IMAGE_TAG:?set REVIEW_IMAGE_TAG}
     environment:
       NODE_ENV: production
-      PORT: '3352'
-      TRUST_PROXY_HOPS: '1'
+      PORT: "3352"
+      TRUST_PROXY_HOPS: "1"
       REDIS_HOST: review-redis
-      REDIS_PORT: '6379'
-      PLATFORM_API_URL: http://gostyle-api:3000
-      CUSTOMER_API_URL: http://gostyle-customer-api:8000
+      REDIS_PORT: "6379"
+      PLATFORM_API_URL: http://gostyle_api:3849
+      CUSTOMER_API_URL: http://gostyle-consumer_api:8000
       PUSH_API_URL: http://push-app:3351
       REVIEW_PUBLIC_BASE_URL: ${REVIEW_PUBLIC_BASE_URL:?set REVIEW_PUBLIC_BASE_URL}
       INVITE_SENDER: ${INVITE_SENDER:-log}
@@ -101,8 +103,10 @@ services:
       - review_customer_api_key
       - review_push_api_key
     networks:
-      - review-internal
-      - gostyle-net
+      review-internal:
+      gostyle-net:
+        aliases:
+          - review-app
     deploy:
       replicas: 1
       restart_policy:
