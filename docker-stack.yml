@@ -1,0 +1,132 @@
+# Swarm stack. Same prefixed names as docker-compose.yml.
+#
+# DEPLOY ORDER (Swarm has no "completed successfully" dependency):
+#   1. docker run --rm --network review_review-internal \
+#        -e DATABASE_URL_FILE=/run/secrets/review_database_url ... \
+#        ghcr.io/<org>/review-service-migrate:${REVIEW_IMAGE_TAG}
+#      (or: docker service create --restart-condition none ... the same image)
+#   2. docker stack deploy -c docker-stack.yml review
+#
+# IMAGES BY COMMIT SHA, never :latest (booking-api conventions §6). A rollback is
+# "deploy the previous sha", a specific artifact.
+#
+# Secrets come from Swarm secrets, never from ${VAR} interpolation: a secret
+# with a space or a ")" was once mangled through a compose file and the
+# service came up holding the wrong key. Create them with, e.g.:
+#   printf %s "$VALUE" | docker secret create review_redis_password -
+
+services:
+  review-db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: review
+      POSTGRES_PASSWORD_FILE: /run/secrets/review_db_password
+      POSTGRES_DB: review
+      TZ: UTC
+      PGTZ: UTC
+    secrets:
+      - review_db_password
+    volumes:
+      - review-pgdata:/var/lib/postgresql/data
+    networks:
+      - review-internal
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+
+  review-redis:
+    image: redis:7-alpine
+    # The password from a secret, read at start; never on the command line of
+    # the stack file.
+    entrypoint: ["sh", "-c", "exec redis-server --appendonly yes --requirepass \"$$(cat /run/secrets/review_redis_password)\""]
+    secrets:
+      - review_redis_password
+    volumes:
+      - review-redisdata:/data
+    networks:
+      - review-internal
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+
+  review-app:
+    image: ghcr.io/entity-tech-solutions/review-service:${REVIEW_IMAGE_TAG:?set REVIEW_IMAGE_TAG to sha-<short>}
+    environment:
+      NODE_ENV: production
+      PORT: "3352"
+      TRUST_PROXY_HOPS: "1"
+      REDIS_HOST: review-redis
+      REDIS_PORT: "6379"
+      PLATFORM_API_URL: http://gostyle-api:3000
+      CUSTOMER_API_URL: http://gostyle-customer-api:8000
+      PUSH_API_URL: http://push-app:3351
+      REVIEW_PUBLIC_BASE_URL: ${REVIEW_PUBLIC_BASE_URL:?set REVIEW_PUBLIC_BASE_URL}
+      INVITE_SENDER: ${INVITE_SENDER:-log}
+      DATABASE_URL_FILE: /run/secrets/review_database_url
+      REDIS_PASSWORD_FILE: /run/secrets/review_redis_password
+      JWT_ACCESS_SECRET_FILE: /run/secrets/jwt_access_secret
+      PLATFORM_INTERNAL_KEY_FILE: /run/secrets/review_platform_internal_key
+      SERVICE_KEY_PLATFORM_FILE: /run/secrets/review_key_platform
+      SERVICE_KEY_BOOKING_API_FILE: /run/secrets/review_key_booking_api
+      SERVICE_KEY_CUSTOMER_API_FILE: /run/secrets/review_key_customer_api
+      SERVICE_KEY_OPS_FILE: /run/secrets/review_key_ops
+      CUSTOMER_API_KEY_FILE: /run/secrets/review_customer_api_key
+      PUSH_API_KEY_FILE: /run/secrets/review_push_api_key
+    secrets:
+      - review_database_url
+      - review_redis_password
+      - jwt_access_secret
+      - review_platform_internal_key
+      - review_key_platform
+      - review_key_booking_api
+      - review_key_customer_api
+      - review_key_ops
+      - review_customer_api_key
+      - review_push_api_key
+    networks:
+      - review-internal
+      - gostyle-net
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 3s
+      update_config:
+        order: start-first
+
+secrets:
+  review_db_password:
+    external: true
+  review_database_url:
+    external: true
+  review_redis_password:
+    external: true
+  jwt_access_secret:
+    external: true
+  review_platform_internal_key:
+    external: true
+  review_key_platform:
+    external: true
+  review_key_booking_api:
+    external: true
+  review_key_customer_api:
+    external: true
+  review_key_ops:
+    external: true
+  review_customer_api_key:
+    external: true
+  review_push_api_key:
+    external: true
+
+volumes:
+  review-pgdata:
+  review-redisdata:
+
+networks:
+  review-internal:
+    driver: overlay
+  gostyle-net:
+    external: true
+    name: gostyle_gostyle-net

@@ -1,0 +1,99 @@
+# Local development stack.
+#
+# PREFIXED NAMES EVERYWHERE: review-db, review-redis, review-app. The app also
+# sits on gostyle-net, where other stacks already have services called db and
+# redis; a short name there resolves to somebody else's database.
+#
+# The database and Redis are on this stack's PRIVATE network only. Only
+# review-app joins gostyle-net, so no other service can reach review-db even by
+# mistake: "other services never connect to it" is enforced by the network,
+# not by convention. (push-notification-service does the same with push-db.)
+#
+# Host ports: 5435 (db), 6382 (redis), 3352 (app). 3351 is push, 3099 booking.
+
+name: review-service
+
+services:
+  review-db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: review
+      POSTGRES_PASSWORD: ${REVIEW_DB_PASSWORD:?set REVIEW_DB_PASSWORD in .env}
+      POSTGRES_DB: review
+      # The app pins its sessions to UTC as well; this keeps psql honest too.
+      TZ: UTC
+      PGTZ: UTC
+    volumes:
+      - review-pgdata:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5435:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U review -d review"]
+      interval: 3s
+      retries: 10
+
+  review-redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    # Password from the environment: the push stack's Redis has none.
+    command: ["redis-server", "--appendonly", "yes", "--requirepass", "${REVIEW_REDIS_PASSWORD:?set REVIEW_REDIS_PASSWORD in .env}"]
+    volumes:
+      - review-redisdata:/data
+    ports:
+      - "127.0.0.1:6382:6379"
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$$REDIS_PASSWORD\" --no-auth-warning ping | grep -q PONG"]
+      interval: 3s
+      retries: 10
+    environment:
+      REDIS_PASSWORD: ${REVIEW_REDIS_PASSWORD}
+
+  # Its own step, before the app: applies pending migrations and exits.
+  review-migrate:
+    build:
+      context: .
+      target: migrate
+    restart: "no"
+    depends_on:
+      review-db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://review:${REVIEW_DB_PASSWORD}@review-db:5432/review
+
+  review-app:
+    build:
+      context: .
+      target: runtime
+    restart: unless-stopped
+    depends_on:
+      review-migrate:
+        condition: service_completed_successfully
+      review-redis:
+        condition: service_healthy
+    env_file: .env
+    environment:
+      # Container-side addresses override the host-side ones in .env.
+      PORT: "3352"
+      DATABASE_URL: postgresql://review:${REVIEW_DB_PASSWORD}@review-db:5432/review
+      REDIS_HOST: review-redis
+      REDIS_PORT: "6379"
+      REDIS_PASSWORD: ${REVIEW_REDIS_PASSWORD}
+    ports:
+      - "127.0.0.1:3352:3352"
+    networks:
+      default:
+      gostyle:
+        aliases:
+          - review-app
+
+volumes:
+  review-pgdata:
+  review-redisdata:
+
+networks:
+  gostyle:
+    external: true
+    # Locally the hand-made `gostyle-net` (as booking-api's compose uses); on
+    # the server the Swarm-made `gostyle_gostyle-net` (as push's compose uses).
+    name: ${GOSTYLE_NETWORK:-gostyle-net}

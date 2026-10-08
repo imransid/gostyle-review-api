@@ -1,0 +1,38 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: review
+          POSTGRES_PASSWORD: review
+          POSTGRES_DB: review
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U review -d review" --health-interval 3s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://review:review@127.0.0.1:5432/review
+      SHADOW_DATABASE_URL: postgresql://review:review@127.0.0.1:5432/review_shadow
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: corepack enable
+      - run: yarn install --immutable
+      - run: yarn prisma generate
+      - run: yarn typecheck
+      - run: yarn lint
+      - run: yarn test
+      # Schema and migrations must agree: a model change with no migration
+      # (or the reverse) fails here, not on the first deploy.
+      - run: psql "postgresql://review:review@127.0.0.1:5432/review" -c 'CREATE DATABASE review_shadow'
+      - run: yarn prisma:check

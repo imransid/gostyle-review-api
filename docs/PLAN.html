@@ -1,0 +1,774 @@
+<title>Rating &amp; Review Service Plan</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one reading column for an engineering report; wide tables and diagrams scroll inside their own frames. */
+:root {
+  --bg: #f5f7f8;
+  --surface: #ffffff;
+  --fg: #16212b;
+  --muted: #566573;
+  --rule: #dbe1e6;
+  --rule-strong: #9fb0bd;
+  --accent: #155e75;
+  --accent-soft: #e2eef2;
+  --good: #23704a; --good-soft: #e3f2ea;
+  --warn: #8f5a00; --warn-soft: #fbf0dc;
+  --bad: #a93a32;  --bad-soft: #f9e4e2;
+  --code-bg: #eef2f4;
+  --font-display: "Bricolage Grotesque", "Avenir Next", "Segoe UI", system-ui, sans-serif;
+  --font-body: "IBM Plex Sans", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f151a; --surface: #161e25; --fg: #e4eaee; --muted: #9babb7;
+    --rule: #26323c; --rule-strong: #4c5e6b; --accent: #6bb8cf; --accent-soft: #15303a;
+    --good: #72c79a; --good-soft: #15302a; --warn: #e2ac55; --warn-soft: #33281a;
+    --bad: #ef8a80; --bad-soft: #3a1f1d; --code-bg: #1d2830;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f151a; --surface: #161e25; --fg: #e4eaee; --muted: #9babb7;
+  --rule: #26323c; --rule-strong: #4c5e6b; --accent: #6bb8cf; --accent-soft: #15303a;
+  --good: #72c79a; --good-soft: #15302a; --warn: #e2ac55; --warn-soft: #33281a;
+  --bad: #ef8a80; --bad-soft: #3a1f1d; --code-bg: #1d2830;
+  color-scheme: dark;
+}
+
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.6;
+  padding-inline: 16px;
+  padding-block: 0;
+}
+.page { max-width: 880px; margin: 0 auto; padding-block: 48px 80px; display: grid; gap: 56px; }
+.prose { max-width: 68ch; }
+
+h1, h2, h3 { font-family: var(--font-display); text-wrap: balance; line-height: 1.15; margin: 0; }
+h1 { font-size: clamp(2.2rem, 6vw, 3.4rem); font-weight: 700; letter-spacing: -0.01em; }
+h2 { font-size: 1.7rem; font-weight: 700; }
+h3 { font-size: 1.15rem; font-weight: 600; }
+p { margin: 0; }
+a { color: var(--accent); text-underline-offset: 2px; }
+a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 2px; }
+code { font-family: var(--font-mono); font-size: 0.86em; background: var(--code-bg); padding: 0.08em 0.35em; border-radius: 4px; overflow-wrap: anywhere; }
+strong { font-weight: 600; }
+
+.eyebrow { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.09em; color: var(--muted); font-weight: 500; }
+.stack { display: grid; gap: 16px; }
+.stack-lg { display: grid; gap: 24px; }
+
+header.top { display: grid; gap: 20px; border-bottom: 1px solid var(--rule); padding-bottom: 32px; }
+.lead { font-size: 1.15rem; color: var(--fg); max-width: 62ch; }
+.meta { display: flex; flex-wrap: wrap; gap: 8px 24px; color: var(--muted); font-size: 0.9rem; }
+
+.verdict { background: var(--accent-soft); border: 1px solid var(--accent); border-radius: 10px; padding: 24px; display: grid; gap: 14px; }
+.verdict h2 { font-size: 1.25rem; }
+ul.tight, ol.tight { margin: 0; padding-left: 1.2em; display: grid; gap: 8px; }
+
+nav.toc { display: grid; gap: 10px; }
+nav.toc ol { margin: 0; padding-left: 1.6em; columns: 2 260px; column-gap: 32px; }
+nav.toc li { margin-bottom: 6px; break-inside: avoid; }
+
+section { display: grid; gap: 20px; scroll-margin-top: 16px; }
+.sec-head { display: grid; gap: 8px; }
+.sec-num { font-family: var(--font-mono); font-size: 0.85rem; color: var(--accent); }
+
+.frame { overflow-x: auto; border: 1px solid var(--rule); border-radius: 10px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: 0.92rem; min-width: 640px; }
+th, td { text-align: left; vertical-align: top; padding: 10px 14px; border-bottom: 1px solid var(--rule); }
+th { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted); font-weight: 600; background: var(--bg); }
+tr:last-child td { border-bottom: 0; }
+td:first-child { font-weight: 500; }
+
+.chip { display: inline-block; font-size: 0.72rem; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
+.chip.copy { color: var(--good); background: var(--good-soft); }
+.chip.fix { color: var(--warn); background: var(--warn-soft); }
+.chip.gap { color: var(--bad); background: var(--bad-soft); }
+
+.callout { border-left: 3px solid var(--rule-strong); padding: 4px 0 4px 16px; color: var(--muted); }
+
+.gaps { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+.gap-card { border: 1px solid var(--rule); background: var(--surface); border-radius: 10px; padding: 16px 18px; display: grid; gap: 6px; align-content: start; min-width: 0; }
+.gap-card h3 { font-size: 1rem; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.gap-card p { font-size: 0.93rem; color: var(--muted); }
+
+pre { margin: 0; font-family: var(--font-mono); font-size: 0.82rem; line-height: 1.55; background: var(--code-bg); padding: 18px 20px; border-radius: 10px; overflow-x: auto; color: var(--fg); }
+pre .c { color: var(--muted); }
+
+figure { margin: 0; display: grid; gap: 10px; }
+figure .frame { padding: 8px; }
+figcaption { font-size: 0.9rem; color: var(--muted); }
+svg { display: block; width: 100%; min-width: 620px; height: auto; font-family: var(--font-body); }
+.d-box { fill: var(--surface); stroke: var(--rule-strong); stroke-width: 1.25; }
+.d-inner { fill: var(--bg); stroke: var(--rule-strong); stroke-width: 1; }
+.d-accent { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 2; }
+.d-name { fill: var(--fg); font-size: 13px; font-weight: 600; }
+.d-big { fill: var(--fg); font-size: 15px; font-weight: 600; }
+.d-line { fill: var(--muted); font-size: 11.5px; }
+.d-gate { fill: var(--fg); font-size: 11.5px; font-weight: 600; }
+.d-edge { stroke: var(--rule-strong); stroke-width: 1.25; fill: none; }
+.d-dash { stroke: var(--rule-strong); stroke-width: 1; stroke-dasharray: 3 3; fill: none; }
+.d-arrow { fill: var(--rule-strong); }
+.d-diamond { fill: var(--accent); }
+.d-rule { stroke: var(--rule); stroke-width: 1; }
+
+.phases { display: grid; gap: 14px; }
+.phase { border: 1px solid var(--rule); background: var(--surface); border-radius: 10px; padding: 18px 20px; display: grid; gap: 10px; min-width: 0; }
+.phase-head { display: flex; gap: 12px; align-items: baseline; flex-wrap: wrap; }
+.phase-id { font-family: var(--font-mono); font-size: 0.85rem; color: var(--accent); font-weight: 500; }
+.phase ul { margin: 0; padding-left: 1.2em; display: grid; gap: 6px; font-size: 0.94rem; }
+.done { font-size: 0.92rem; color: var(--muted); border-top: 1px dashed var(--rule); padding-top: 10px; }
+.done strong { color: var(--fg); }
+
+.sources { font-size: 0.88rem; color: var(--muted); }
+.sources ul { margin: 0; padding-left: 1.2em; display: grid; gap: 4px; }
+
+@media (max-width: 560px) {
+  .page { padding-block: 32px 56px; gap: 44px; }
+  .verdict { padding: 18px; }
+}
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+</style>
+
+<div class="page">
+
+<header class="top">
+  <div class="eyebrow">Audit report and build plan · GoStyle backend</div>
+  <h1>Rating &amp; Review Service</h1>
+  <p class="lead">Build the rating and review service by moving the existing review code out of gostyle-platform, not by starting from scratch. Give it the push-notification-service layout and its own Postgres, and use Prisma 7 the way gostyle-booking-api does.</p>
+  <div class="meta">
+    <span>Prepared by Imran Khan Rafa</span>
+    <span>As of 8 Oct 2026</span>
+    <span>Read only: no code changed, nothing run against a database</span>
+  </div>
+</header>
+
+<aside class="verdict" aria-labelledby="rec">
+  <h2 id="rec">Recommendation</h2>
+  <ul class="tight">
+    <li><strong>Extract, don't duplicate.</strong> Reviews already exist in <code>packages/nest-storefront</code>: four tables, single-use invite links, salon replies, reports and HQ moderation. A second review system next to it would split one salon's reputation in two.</li>
+    <li><strong>One owner, one database.</strong> Only <code>review-service</code> holds review data, in <code>review-db</code>. No other service reads its tables, including customer-api, which does today.</li>
+    <li><strong>Keep the anti-fraud model.</strong> One review per completed booking, written only with a single-use invite token. Port the platform's rules unchanged.</li>
+    <li><strong>Store the rating summary.</strong> Keep each storefront's average and counts in a summary table updated in the same transaction as each review. Recompute it nightly, and send it to customer-api as events.</li>
+    <li><strong>Outbox for every event.</strong> Save events in the same transaction as the data. The push service's "save, then queue" order can lose work when Redis is down.</li>
+  </ul>
+  <p>Seven decisions need an answer before Phase 1 starts (<a href="#decide">section 9</a>). The biggest is whether stylists get their own rating.</p>
+</aside>
+
+<nav class="toc" aria-label="Contents">
+  <div class="eyebrow">Contents</div>
+  <ol>
+    <li><a href="#template">The template: push-notification-service</a></li>
+    <li><a href="#today">What already exists for reviews</a></li>
+    <li><a href="#domain">Domain model</a></li>
+    <li><a href="#database">Database</a></li>
+    <li><a href="#cqrs">Commands, queries and endpoints</a></li>
+    <li><a href="#connect">How it connects to other services</a></li>
+    <li><a href="#folders">Folder structure</a></li>
+    <li><a href="#plan">Build plan</a></li>
+    <li><a href="#decide">Decisions, open questions and risks</a></li>
+  </ol>
+</nav>
+
+<!-- 1 -->
+<section id="template">
+  <div class="sec-head">
+    <span class="sec-num">01</span>
+    <h2>The template: push-notification-service</h2>
+  </div>
+  <p class="prose">Copy the push service's layout and CQRS wiring. Don't copy its persistence, config or auth. The table marks each area <span class="chip copy">Copy</span> or <span class="chip fix">Fix</span>.</p>
+  <div class="frame">
+    <table>
+      <thead><tr><th style="width:18%">Area</th><th>What the push service does today</th><th style="width:11%">Verdict</th><th style="width:28%">For the review service</th></tr></thead>
+      <tbody>
+        <tr><td>Layers</td><td><code>src/notification/</code> split into <code>domain</code>, <code>application</code>, <code>infrastructure</code>, <code>presentation</code>. Domain imports only <code>@nestjs/cqrs</code>.</td><td><span class="chip copy">Copy</span></td><td>Same four folders under <code>src/review/</code>.</td></tr>
+        <tr><td>Aggregate</td><td><code>Notification extends AggregateRoot</code>: private constructor, <code>create()</code> and <code>restore()</code>, state changes guarded inside methods.</td><td><span class="chip copy">Copy</span></td><td>Same shape for <code>Review</code>, <code>ReviewInvite</code>, <code>ReviewReport</code>.</td></tr>
+        <tr><td>Value objects</td><td><code>DeviceToken</code> and <code>NotificationContent</code> validate on create and throw <code>DomainError</code>, which a global filter turns into 400.</td><td><span class="chip copy">Copy</span></td><td>Add an error <code>code</code>, like the platform's <code>{ code: 'INVITE_EXPIRED' }</code>.</td></tr>
+        <tr><td>Ports</td><td>Repository and sender sit behind <code>Symbol</code> tokens. Swapping a provider means changing one <code>provide</code> line.</td><td><span class="chip copy">Copy</span></td><td>Every repository and outside call behind a port.</td></tr>
+        <tr><td>Port leaks</td><td><code>PostgresDeviceRepository</code> is injected as a concrete class into two application classes and <code>DeviceController</code>. The controller skips the command bus.</td><td><span class="chip fix">Fix</span></td><td>Application code never imports from <code>infrastructure/</code>. Controllers only talk to the buses.</td></tr>
+        <tr><td>Database access</td><td>Raw <code>pg</code>, two separate <code>Pool</code>s, tables made with <code>CREATE TABLE IF NOT EXISTS</code> at boot. No migrations.</td><td><span class="chip fix">Fix</span></td><td>Prisma 7, one <code>PrismaService</code>, tracked migrations.</td></tr>
+        <tr><td>Reliability</td><td>The handler saves the row, then calls <code>queue.add()</code>. If Redis fails between the two, the row stays PENDING and never sends. Events are published in-process only.</td><td><span class="chip fix">Fix</span></td><td>Transactional outbox plus a relay job.</td></tr>
+        <tr><td>Background work</td><td>BullMQ, 3 attempts, exponential backoff, <code>jobId</code> = row id, and a worker that skips rows no longer PENDING.</td><td><span class="chip copy">Copy</span></td><td>Use it for the outbox relay and scheduled jobs.</td></tr>
+        <tr><td>Idempotency</td><td><code>eventId</code>, a partial unique index and <code>ON CONFLICT DO NOTHING</code>.</td><td><span class="chip copy">Copy</span></td><td>Same idea for invites and the inbox table.</td></tr>
+        <tr><td>Config</td><td><code>process.env</code> read in 6 files. A default <code>DATABASE_URL</code> with a password lives in code. <code>ConfigModule</code> loads but nothing uses it.</td><td><span class="chip fix">Fix</span></td><td>One validated config; boot fails when a value is missing.</td></tr>
+        <tr><td>Auth</td><td>One shared <code>x-api-key</code> for every caller, compared with <code>!==</code>.</td><td><span class="chip fix">Fix</span></td><td>A key per calling service, JWT for people, timing-safe compare.</td></tr>
+        <tr><td>Errors</td><td><code>Error('Already processed')</code> in the aggregate would surface as a 500. The controller also re-maps <code>DomainError</code> by hand, duplicating the filter.</td><td><span class="chip fix">Fix</span></td><td>Coded domain errors and one filter.</td></tr>
+        <tr><td>API docs</td><td>Swagger with the API-key lock; turned off when <code>NODE_ENV=production</code>.</td><td><span class="chip copy">Copy</span></td><td>Same.</td></tr>
+        <tr><td>Health and logs</td><td><code>GET /</code> returns "Hello World!". Plain-text Nest <code>Logger</code>.</td><td><span class="chip fix">Fix</span></td><td><code>/health</code> checking DB and Redis; pino JSON logs as in booking-api.</td></tr>
+        <tr><td>Tests</td><td>7 unit spec files on Vitest, no database needed. No repository or constraint tests.</td><td><span class="chip copy">Copy</span></td><td>Keep the unit style; add DB tests and must-fail SQL proofs.</td></tr>
+        <tr><td>Docker</td><td>Multi-stage Node 22 image. Compose aliases <code>push-db</code> and <code>push-redis</code> so names don't clash on <code>gostyle-net</code>.</td><td><span class="chip copy">Copy</span></td><td><code>review-db</code>, <code>review-redis</code>, <code>review-app</code>.</td></tr>
+        <tr><td>Swarm stack</td><td><code>docker-stack.yml</code> still uses the short names <code>db</code> and <code>redis</code>. Redis has no password in either file.</td><td><span class="chip fix">Fix</span></td><td>Prefixed names everywhere; Redis password from a secret.</td></tr>
+        <tr><td>Housekeeping</td><td><code>scripts/cleanup.sql</code>, run by root's crontab on the host.</td><td><span class="chip copy">Copy</span></td><td>Keep the SQL in the repo; run it as a scheduled job in the app.</td></tr>
+        <tr><td>Docs</td><td>README says NestJS 11 (<code>package.json</code> pins ^12) and says Compose has no Redis (it does now).</td><td><span class="chip fix">Fix</span></td><td>Keep the README in step with the code.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="prose callout">The push service has no Prisma, so the Prisma setup comes from gostyle-booking-api: <code>prisma.config.ts</code>, a <code>prisma-client</code> generator with <code>moduleFormat = "cjs"</code>, <code>@prisma/adapter-pg</code>, and hand-written SQL for CHECKs and partial indexes (its <code>CLAUDE.md</code> §3).</p>
+</section>
+
+<!-- 2 -->
+<section id="today">
+  <div class="sec-head">
+    <span class="sec-num">02</span>
+    <h2>What already exists for reviews</h2>
+  </div>
+  <p class="prose">Reviews are already built as part of <code>nest-storefront</code> in gostyle-platform, and they're carefully designed. customer-api reads the same tables directly for salon discovery.</p>
+  <div class="frame">
+    <table>
+      <thead><tr><th style="width:20%">Piece</th><th>How it works today</th><th style="width:30%">Where</th></tr></thead>
+      <tbody>
+        <tr><td>Tables</td><td><code>storefront_review</code>, <code>storefront_review_invite</code>, <code>storefront_review_reply</code>, <code>storefront_review_report</code> in the platform database.</td><td>migrations <code>20260807120000</code>, <code>20260808120000</code></td></tr>
+        <tr><td>Rules</td><td>Rating is a whole number 1–5. Comment optional, at most 1000 characters. Language EN or AR. Author name at most 60, shown as "Verified customer" when blank.</td><td><code>domain/services/review-rules.ts</code></td></tr>
+        <tr><td>Anti-fraud</td><td>One review per booking (plain UNIQUE on <code>booking_id</code>). Writing needs an invite token: 32 random bytes, stored only as SHA-256, valid 30 days, single use.</td><td><code>review-invite-rules.ts</code>, <code>submit-review.handler.ts</code></td></tr>
+        <tr><td>Invite flow</td><td><code>bookings.booking.completed.v1</code> outbox event → mint the invite → send the link on WhatsApp. Mint first, send last, so a retry never messages twice.</td><td><code>review-invite.listener.ts</code>, <code>whatsapp-review-invite-sender.ts</code></td></tr>
+        <tr><td>Submit</td><td><code>POST /v1/public/reviews/:token</code>, no login, limited to 10 per hour and 40 per day per IP. Marking the invite used and creating the review happen in one transaction.</td><td><code>public-reviews.controller.ts</code></td></tr>
+        <tr><td>Salon console</td><td>List reviews, see the aggregate, write one reply per review (create, edit, delete), report a review.</td><td><code>storefront.controller.ts</code></td></tr>
+        <tr><td>Moderation</td><td>5 report reasons; OPEN → UPHELD or DISMISSED; one OPEN report per review (partial unique index). Filing a report never hides the review. Upholding sets it to HIDDEN.</td><td><code>/v1/platform/review-reports</code>, permission <code>storefront.review_moderation</code></td></tr>
+        <tr><td>Aggregate</td><td>Average to one decimal (null when there are no reviews), count, count by language, 1–5 histogram. Computed on every read, never stored.</td><td><code>computeAggregate()</code></td></tr>
+        <tr><td>customer-api</td><td>Django <code>managed=False</code> models over the platform database. <code>discoverable_salons()</code> computes <code>avg_rating</code> and <code>review_count</code> with SQL subqueries. "Top rated" means at least 4.5 and at least 3 reviews.</td><td><code>apps/salons/selectors.py</code></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Gaps found</h3>
+  <div class="gaps">
+    <div class="gap-card">
+      <h3><span class="chip gap">Gap</span> Mobile bookings get no invite</h3>
+      <p>gostyle-booking-api keeps bookings in its own database. Its events run through in-process listeners and end in <code>LoggingEventPublisher</code>, so nothing reaches the platform's invite listener.</p>
+    </div>
+    <div class="gap-card">
+      <h3><span class="chip gap">Gap</span> Stylists can't be rated</h3>
+      <p>No review links to a staff member. customer-api's <code>expert_profile.py</code> returns <code>rating: null</code> and <code>review_count: 0</code> for every stylist.</p>
+    </div>
+    <div class="gap-card">
+      <h3><span class="chip gap">Gap</span> No in-app review</h3>
+      <p>The WhatsApp link is the only way to write a review. A customer who is logged in to the app can't review from there.</p>
+    </div>
+    <div class="gap-card">
+      <h3><span class="chip gap">Gap</span> Shared-database coupling</h3>
+      <p>customer-api's SQL reads <code>storefront_review</code> directly. Those queries break as soon as the tables move.</p>
+    </div>
+    <div class="gap-card">
+      <h3><span class="chip fix">Check</span> No path to REMOVED</h3>
+      <p>The REMOVED state exists, but I found no code that sets it or brings a HIDDEN review back.</p>
+    </div>
+    <div class="gap-card">
+      <h3><span class="chip fix">Check</span> A second rating source</h3>
+      <p>customer-api's own <code>Salon</code> model has static <code>rating</code> and <code>reviews</code> columns, separate from the real reviews.</p>
+    </div>
+  </div>
+</section>
+
+<!-- 3 -->
+<section id="domain">
+  <div class="sec-head">
+    <span class="sec-num">03</span>
+    <h2>Domain model</h2>
+  </div>
+  <p class="prose">One bounded context, <strong>Reviews</strong>, with three aggregates and one read model. The rules below are the platform's, carried over as they are.</p>
+  <div class="frame">
+    <table>
+      <thead><tr><th style="width:20%">Aggregate</th><th style="width:30%">Holds</th><th>Rules it guards</th></tr></thead>
+      <tbody>
+        <tr><td><code>Review</code> (root)<br>+ <code>Reply</code> (0..1)<br>+ <code>StaffRating</code> (0..n, later)</td><td>Rating, comment, language, author name, state, tenant, storefront, branch, booking reference.</td><td>One review per booking. Rating 1–5. Blank comment becomes null. States: PUBLISHED ↔ HIDDEN, either → REMOVED, and REMOVED is final. One reply per review, written only by staff of that salon.</td></tr>
+        <tr><td><code>ReviewInvite</code></td><td>Token hash, expiry, used time, booking reference, customer id.</td><td>One invite per booking, ever. Single use. Expires 30 days after minting. The plain token is never stored and never logged.</td></tr>
+        <tr><td><code>ReviewReport</code></td><td>Reason, note, status, who filed it, who resolved it.</td><td>At most one OPEN report per review. Filing never hides the review. Only HQ resolves. UPHELD hides the review.</td></tr>
+        <tr><td><code>RatingSummary</code> (read model)</td><td>Count, rating sum, 1–5 histogram, count per language, per storefront (per stylist later).</td><td>Changes only through review events. Matches a full recompute from rows.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="prose"><strong>Value objects:</strong> <code>Rating</code>, <code>Comment</code>, <code>AuthorName</code>, <code>ReviewLanguage</code>, <code>InviteToken</code>, <code>BookingRef</code> (source + id), <code>SubjectRef</code> (tenant, storefront, branch).</p>
+
+  <h3>Domain events</h3>
+  <div class="frame">
+    <table>
+      <thead><tr><th style="width:34%">Event</th><th>Raised when</th><th style="width:34%">Used by</th></tr></thead>
+      <tbody>
+        <tr><td><code>review.invite.created.v1</code></td><td>An invite is minted</td><td>Metrics only. Never carries the token.</td></tr>
+        <tr><td><code>review.submitted.v1</code></td><td>A customer redeems a token</td><td>Summary projector</td></tr>
+        <tr><td><code>review.hidden.v1</code> / <code>restored.v1</code> / <code>removed.v1</code></td><td>Moderation changes the state</td><td>Summary projector</td></tr>
+        <tr><td><code>review.reply.posted.v1</code></td><td>The salon replies</td><td>Push to the customer</td></tr>
+        <tr><td><code>review.report.filed.v1</code> / <code>upheld.v1</code> / <code>dismissed.v1</code></td><td>The report changes</td><td>Audit, HQ queue counts</td></tr>
+        <tr><td><code>rating.summary.changed.v1</code></td><td>A summary row changes</td><td>customer-api's local copy</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- 4 -->
+<section id="database">
+  <div class="sec-head">
+    <span class="sec-num">04</span>
+    <h2>Database</h2>
+  </div>
+  <p class="prose">The service owns one Postgres database, <code>review</code> on <code>review-db</code>, changed only through Prisma migrations. Other services never connect to it.</p>
+  <div class="frame">
+    <table>
+      <thead><tr><th style="width:20%">Table</th><th style="width:26%">Purpose</th><th>Key constraints</th></tr></thead>
+      <tbody>
+        <tr><td><code>review</code></td><td>One row per review</td><td>UUID v7 id. UNIQUE <code>(booking_source, booking_id)</code>. CHECK rating 1–5. Index <code>(storefront_id, state, created_at)</code>.</td></tr>
+        <tr><td><code>review_reply</code></td><td>The salon's answer</td><td>UNIQUE <code>review_id</code>; foreign key with cascade; hard delete.</td></tr>
+        <tr><td><code>review_invite</code></td><td>The only way to write</td><td>UNIQUE <code>(booking_source, booking_id)</code>. UNIQUE <code>token_hash</code>. Index on <code>expires_at</code>.</td></tr>
+        <tr><td><code>review_report</code></td><td>Complaints about a review</td><td>Partial UNIQUE <code>(review_id) WHERE status = 'OPEN'</code>. Index <code>(status, created_at)</code> for the HQ queue.</td></tr>
+        <tr><td><code>rating_summary</code></td><td>Read model</td><td>Primary key <code>(subject_type, subject_id)</code>. Count, rating sum, five histogram columns, two language columns. Average = sum ÷ count, rounded at read.</td></tr>
+        <tr><td><code>review_staff_rating</code></td><td>Per-stylist stars (later)</td><td>Primary key <code>(review_id, staff_id)</code>. CHECK rating 1–5.</td></tr>
+        <tr><td><code>outbox_event</code></td><td>Events waiting to leave</td><td>Same shape as booking-api's <code>event_outbox</code>, with an index on unpublished rows by <code>created_at</code>.</td></tr>
+        <tr><td><code>inbox_event</code></td><td>Events already handled</td><td>Primary key <code>(source, event_id)</code>, so every consumer can safely see an event twice.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <h3>Changes from today's tables</h3>
+  <ul class="tight prose">
+    <li><strong><code>booking_source</code> joins the unique keys.</strong> Two booking systems now mint booking ids, and the key should say which system an id belongs to.</li>
+    <li><strong>A CHECK on rating.</strong> The platform left it out so error messages come from the domain. The domain still writes the message; the CHECK is a backstop in a database no other code shares.</li>
+    <li><strong>The summary is stored.</strong> The platform refused to store it because a stored average drifts. Across a service boundary customer-api can't run the query, so the drift risk is handled instead: same-transaction updates plus a nightly recompute.</li>
+  </ul>
+  <h3>Prisma conventions</h3>
+  <ul class="tight prose">
+    <li><code>prisma.config.ts</code> holds the URL and migrations path. The generator writes to <code>src/generated/prisma</code> with <code>moduleFormat = "cjs"</code>, as booking-api does.</li>
+    <li>One <code>PrismaService</code> using <code>@prisma/adapter-pg</code>, shared by every repository.</li>
+    <li>snake_case <code>@@map</code>, <code>@db.Uuid</code>, <code>@db.Timestamptz</code>. Enum types get a suffix (<code>review_state</code>), because Postgres types and tables share one namespace.</li>
+    <li>Partial indexes and CHECKs are hand-written into <code>migration.sql</code>, made safe to re-run with <code>IF NOT EXISTS</code>.</li>
+    <li><code>prisma migrate deploy</code> runs as its own step before the app starts, never inside the app at boot.</li>
+    <li><code>tenant_id</code> on every row. No foreign keys to other services' ids (storefront, branch, booking, customer, staff).</li>
+  </ul>
+</section>
+
+<!-- 5 -->
+<section id="cqrs">
+  <div class="sec-head">
+    <span class="sec-num">05</span>
+    <h2>Commands, queries and endpoints</h2>
+  </div>
+  <p class="prose">14 commands change data (one of them comes later) and 8 queries read it. Console and HQ paths keep today's shape, so the front ends only change their base URL.</p>
+  <h3>Commands</h3>
+  <div class="frame">
+    <table>
+      <thead><tr><th style="width:26%">Command</th><th style="width:20%">Caller</th><th>Trigger or endpoint</th></tr></thead>
+      <tbody>
+        <tr><td><code>CreateReviewInvite</code></td><td>Event consumer</td><td><code>booking.completed</code> from gostyle-platform or booking-api</td></tr>
+        <tr><td><code>SubmitReview</code></td><td>Customer with a token</td><td><code>POST /v1/public/reviews/:token</code></td></tr>
+        <tr><td><code>SubmitInAppReview</code> (later)</td><td>Logged-in customer</td><td><code>POST /v1/me/reviews</code>, still redeeming that booking's invite row</td></tr>
+        <tr><td><code>PostReply</code></td><td>Salon staff</td><td><code>POST /v1/storefront/reviews/:id/reply</code></td></tr>
+        <tr><td><code>EditReply</code></td><td>Salon staff</td><td><code>PATCH /v1/storefront/reviews/:id/reply</code></td></tr>
+        <tr><td><code>DeleteReply</code></td><td>Salon staff</td><td><code>DELETE /v1/storefront/reviews/:id/reply</code></td></tr>
+        <tr><td><code>ReportReview</code></td><td>Salon staff</td><td><code>POST /v1/storefront/reviews/:id/report</code></td></tr>
+        <tr><td><code>UpholdReport</code></td><td>HQ moderator</td><td><code>POST /v1/platform/review-reports/:id/uphold</code></td></tr>
+        <tr><td><code>DismissReport</code></td><td>HQ moderator</td><td><code>POST /v1/platform/review-reports/:id/dismiss</code></td></tr>
+        <tr><td><code>HideReview</code> / <code>RestoreReview</code></td><td>HQ moderator</td><td><code>POST /v1/platform/reviews/:id/hide</code> and <code>/restore</code></td></tr>
+        <tr><td><code>RemoveReview</code></td><td>HQ moderator</td><td><code>POST /v1/platform/reviews/:id/remove</code> (final)</td></tr>
+        <tr><td><code>RecomputeRatingSummaries</code></td><td>Nightly job, admin</td><td>Scheduled job; <code>POST /internal/ratings/recompute</code></td></tr>
+        <tr><td><code>EraseCustomerReviews</code></td><td>Event consumer</td><td>A customer-deleted event: blank the author name and <code>customer_id</code></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <h3>Queries</h3>
+  <div class="frame">
+    <table>
+      <thead><tr><th style="width:26%">Query</th><th style="width:20%">Caller</th><th>Endpoint</th></tr></thead>
+      <tbody>
+        <tr><td><code>GetInvite</code></td><td>Review web form</td><td><code>GET /v1/public/review-invites/:token</code>: salon name, and whether the link is open, used or expired</td></tr>
+        <tr><td><code>ListPublicReviews</code></td><td>App, web</td><td><code>GET /v1/public/storefronts/:id/reviews</code>, PUBLISHED only, paged</td></tr>
+        <tr><td><code>GetRatingSummary</code></td><td>App, web</td><td><code>GET /v1/public/storefronts/:id/rating</code></td></tr>
+        <tr><td><code>GetRatingSummaries</code></td><td>customer-api</td><td><code>GET /internal/ratings?storefrontIds=…</code> for backfill and repair</td></tr>
+        <tr><td><code>ListConsoleReviews</code></td><td>Salon staff</td><td><code>GET /v1/storefront/reviews</code>, every state, with reply and report status</td></tr>
+        <tr><td><code>GetConsoleAggregate</code></td><td>Salon staff</td><td><code>GET /v1/storefront/reviews/aggregate</code></td></tr>
+        <tr><td><code>ListReportQueue</code></td><td>HQ moderator</td><td><code>GET /v1/platform/review-reports</code></td></tr>
+        <tr><td><code>GetReport</code></td><td>HQ moderator</td><td><code>GET /v1/platform/review-reports/:id</code></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <h3>Handler rules</h3>
+  <ul class="tight prose">
+    <li><strong>Write side.</strong> Load the aggregate, call its method, then save it and its events in one <code>$transaction</code>. Return the id.</li>
+    <li><strong>Read side.</strong> Query handlers read Prisma straight into response DTOs and skip the aggregate. The push service's <code>GetNotificationHandler</code> loads the aggregate; that's fine for one row but slow for lists.</li>
+    <li><strong>Errors.</strong> Domain errors carry a code (<code>INVITE_EXPIRED</code> → 410, <code>INVITE_ALREADY_USED</code> → 409, <code>VALIDATION_FAILED</code> → 422), mapped in one place.</li>
+    <li><strong>Tenant.</strong> Public routes take the tenant only from the invite row. Console routes take it only from the JWT. Never fall back to a default tenant (the platform's <code>@TenantId()</code> does, and its own code warns about it).</li>
+  </ul>
+</section>
+
+<!-- 6 -->
+<section id="connect">
+  <div class="sec-head">
+    <span class="sec-num">06</span>
+    <h2>How it connects to other services</h2>
+  </div>
+  <p class="prose">Other services reach reviews only through events and HTTP, never through the tables.</p>
+  <figure>
+    <div class="frame">
+      <svg viewBox="0 0 760 368" role="img" aria-label="Other services reach review-service through events and HTTP, never through its tables">
+        <defs>
+          <marker id="arch-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" class="d-arrow"/></marker>
+        </defs>
+        <!-- connectors -->
+        <g>
+          <path class="d-edge" d="M208 52H254" marker-end="url(#arch-arrow)"/>
+          <path class="d-edge" d="M208 140H254" marker-end="url(#arch-arrow)"/>
+          <path class="d-edge" d="M208 228H254" marker-end="url(#arch-arrow)"/>
+          <path class="d-edge" d="M208 316H254" marker-end="url(#arch-arrow)"/>
+          <path class="d-edge" d="M464 52H510" marker-end="url(#arch-arrow)"/>
+          <path class="d-edge" d="M464 140H510" marker-end="url(#arch-arrow)"/>
+          <path class="d-edge" d="M464 228H510" marker-end="url(#arch-arrow)"/>
+          <path class="d-edge" d="M464 316H510" marker-end="url(#arch-arrow)"/>
+        </g>
+        <!-- left: inputs -->
+        <g>
+          <rect class="d-box" x="16" y="16" width="192" height="72" rx="8"/>
+          <text class="d-name" x="32" y="40">gostyle-platform</text>
+          <text class="d-line" x="32" y="58">salon bookings: completed</text>
+          <text class="d-line" x="32" y="74">event mints an invite</text>
+        </g>
+        <g>
+          <rect class="d-box" x="16" y="104" width="192" height="72" rx="8"/>
+          <text class="d-name" x="32" y="128">gostyle-booking-api</text>
+          <text class="d-line" x="32" y="146">mobile bookings: events</text>
+          <text class="d-line" x="32" y="162">stop at a logger today</text>
+        </g>
+        <g>
+          <rect class="d-box" x="16" y="192" width="192" height="72" rx="8"/>
+          <text class="d-name" x="32" y="216">Salon + HQ consoles</text>
+          <text class="d-line" x="32" y="234">replies, reports and</text>
+          <text class="d-line" x="32" y="250">moderation, platform JWT</text>
+        </g>
+        <g>
+          <rect class="d-box" x="16" y="280" width="192" height="72" rx="8"/>
+          <text class="d-name" x="32" y="304">Customer</text>
+          <text class="d-line" x="32" y="322">uses the invite link,</text>
+          <text class="d-line" x="32" y="338">or the app (later)</text>
+        </g>
+        <!-- centre: the service -->
+        <g>
+          <rect class="d-accent" x="256" y="8" width="208" height="352" rx="10"/>
+          <text class="d-big" x="272" y="36">review-service</text>
+          <text class="d-line" x="272" y="56">NestJS · CQRS · DDD</text>
+          <text class="d-line" x="272" y="72">Prisma 7 · own database</text>
+          <rect class="d-inner" x="272" y="96" width="176" height="56" rx="8"/>
+          <text class="d-name" x="288" y="120">review-db</text>
+          <text class="d-line" x="288" y="138">Postgres 16 · 8 tables</text>
+          <rect class="d-inner" x="272" y="176" width="176" height="56" rx="8"/>
+          <text class="d-name" x="288" y="200">review-redis</text>
+          <text class="d-line" x="288" y="218">BullMQ jobs and relay</text>
+          <rect class="d-inner" x="272" y="256" width="176" height="56" rx="8"/>
+          <text class="d-name" x="288" y="280">outbox_event</text>
+          <text class="d-line" x="288" y="298">saved with each write</text>
+          <text class="d-line" x="272" y="340">tenant_id on every row</text>
+        </g>
+        <!-- right: outputs -->
+        <g>
+          <rect class="d-box" x="512" y="16" width="232" height="72" rx="8"/>
+          <text class="d-name" x="528" y="40">push-notification-service</text>
+          <text class="d-line" x="528" y="58">POST /notifications/user</text>
+          <text class="d-line" x="528" y="74">when the salon replies</text>
+        </g>
+        <g>
+          <rect class="d-box" x="512" y="104" width="232" height="72" rx="8"/>
+          <text class="d-name" x="528" y="128">WhatsApp API</text>
+          <text class="d-line" x="528" y="146">sends the invite link</text>
+          <text class="d-line" x="528" y="162">right after minting</text>
+        </g>
+        <g>
+          <rect class="d-box" x="512" y="192" width="232" height="72" rx="8"/>
+          <text class="d-name" x="528" y="216">customer-api</text>
+          <text class="d-line" x="528" y="234">rating.summary.changed.v1</text>
+          <text class="d-line" x="528" y="250">fills its local rating table</text>
+        </g>
+        <g>
+          <rect class="d-box" x="512" y="280" width="232" height="72" rx="8"/>
+          <text class="d-name" x="528" y="304">Customer contact lookup</text>
+          <text class="d-line" x="528" y="322">name and phone, read at</text>
+          <text class="d-line" x="528" y="338">send time (owner: open)</text>
+        </g>
+      </svg>
+    </div>
+    <figcaption>Left: what calls in. Right: what review-service calls or sends to. No arrow touches review-db from outside.</figcaption>
+  </figure>
+  <ul class="tight prose">
+    <li><strong>Events in.</strong> A consumer for <code>booking.completed</code> from both booking systems. It records each event id in <code>inbox_event</code> first, so a redelivery does nothing.</li>
+    <li><strong>Events out.</strong> The outbox relay delivers to each consumer over HTTP with a per-caller key. The receiver dedupes by event id. booking-api already calls the push service this way.</li>
+    <li><strong>Push.</strong> When a salon replies, call <code>POST /notifications/user</code> with <code>eventId = review:&lt;id&gt;:reply</code>. The push service drops repeats of the same <code>eventId</code>.</li>
+    <li><strong>The token never travels.</strong> The plain token exists only between minting and the WhatsApp send. Events carry the invite id, and logs carry the booking id.</li>
+    <li><strong>Auth.</strong> Staff send the platform JWT (issuer <code>gostyle-api</code>), checked the way booking-api's <code>token-verifier.service.ts</code> does. HQ routes also check <code>storefront.review_moderation</code>.</li>
+  </ul>
+</section>
+
+<!-- 7 -->
+<section id="folders">
+  <div class="sec-head">
+    <span class="sec-num">07</span>
+    <h2>Folder structure</h2>
+  </div>
+  <p class="prose">This mirrors the push service, with Prisma files added. Commands and queries each get their own folder, as in gostyle-platform, because there are 22 of them.</p>
+<pre>review-service/
+  prisma/
+    schema.prisma                 <span class="c">models + enums, snake_case @@map</span>
+    migrations/                   <span class="c">generated SQL + hand-written CHECKs and partial indexes</span>
+  prisma.config.ts                <span class="c">datasource URL + migrations path (Prisma 7)</span>
+  src/
+    main.ts                       <span class="c">ValidationPipe, error filter, Swagger (off in production)</span>
+    app.module.ts                 <span class="c">validated config, pino logger, scheduler, ReviewModule</span>
+    generated/prisma/             <span class="c">output of prisma generate (git-ignored)</span>
+    shared/
+      config/                     <span class="c">env schema; boot fails on a missing value</span>
+      prisma/prisma.service.ts    <span class="c">one client for every repository</span>
+      outbox/                     <span class="c">outbox writer, relay job, inbox guard</span>
+      auth/                       <span class="c">service-key guard, JWT guard, permission decorator</span>
+      http/                       <span class="c">domain-error.filter.ts, health.controller.ts</span>
+    review/
+      domain/
+        review/                   <span class="c">review.aggregate.ts, reply.entity.ts, review-state.ts, events</span>
+        invite/                   <span class="c">review-invite.aggregate.ts, invite-token.ts (mint, hash)</span>
+        report/                   <span class="c">review-report.aggregate.ts, report-reason.ts, events</span>
+        rating/                   <span class="c">rating-summary.ts (computeAggregate, histogram)</span>
+        value-objects/            <span class="c">rating, comment, author-name, language, booking-ref, subject-ref</span>
+        ports/                    <span class="c">repositories, invite-sender, contact-directory, push-sender</span>
+        domain.error.ts           <span class="c">code + message</span>
+      application/
+        commands/&lt;verb-noun&gt;/     <span class="c">*.command.ts + *.handler.ts</span>
+        queries/&lt;name&gt;/           <span class="c">*.query.ts + *.handler.ts, Prisma straight into DTOs</span>
+        event-handlers/           <span class="c">rating-summary.projector.ts, reply-push.handler.ts</span>
+        consumers/                <span class="c">booking-completed.consumer.ts</span>
+        jobs/                     <span class="c">recompute-summaries.job.ts, cleanup.job.ts</span>
+      infrastructure/             <span class="c">prisma-*.repository.ts, whatsapp-invite-sender.ts,</span>
+                                  <span class="c">log-invite-sender.ts, http-contact-directory.ts, push.client.ts</span>
+      presentation/
+        public-reviews.controller.ts   <span class="c">token routes, throttled, no JWT</span>
+        console-reviews.controller.ts  <span class="c">/v1/storefront/reviews/*</span>
+        moderation.controller.ts       <span class="c">/v1/platform/review-reports/*, /v1/platform/reviews/*</span>
+        internal.controller.ts         <span class="c">/internal/*, per-caller service key</span>
+        dto/
+      review.module.ts
+  test/
+    unit/                         <span class="c">domain + handlers, no database (push-service style)</span>
+    db/                           <span class="c">repositories and constraints on a real Postgres</span>
+  scripts/
+    backfill-from-platform.sql
+    proof.sql                     <span class="c">inserts that MUST fail: duplicate review, rating 6, second open report</span>
+  docker-compose.yml              <span class="c">review-app, review-db, review-redis on gostyle-net</span>
+  docker-stack.yml
+  Dockerfile</pre>
+</section>
+
+<!-- 8 -->
+<section id="plan">
+  <div class="sec-head">
+    <span class="sec-num">08</span>
+    <h2>Build plan</h2>
+  </div>
+  <p class="prose">Eight phases in four stages, with a gate between stages. Durations are left out until the decisions in section 9 set the scope.</p>
+  <figure>
+    <div class="frame">
+      <svg viewBox="0 0 760 212" role="img" aria-label="Build plan: four stages with three gates">
+        <g>
+          <rect class="d-box" x="16" y="16" width="164" height="128" rx="8"/>
+          <text class="d-name" x="32" y="40">Decide + scaffold</text>
+          <line class="d-rule" x1="32" y1="54" x2="164" y2="54"/>
+          <text class="d-line" x="32" y="78">P0 decisions, contract</text>
+          <text class="d-line" x="32" y="100">P1 repo, Prisma, CI</text>
+          <text class="d-line" x="32" y="122">health, config, auth</text>
+        </g>
+        <g>
+          <rect class="d-accent" x="204" y="16" width="164" height="128" rx="8"/>
+          <text class="d-name" x="220" y="40">Build the core</text>
+          <line class="d-rule" x1="220" y1="54" x2="352" y2="54"/>
+          <text class="d-line" x="220" y="78">P2 domain + specs</text>
+          <text class="d-line" x="220" y="100">P3 write side, outbox</text>
+          <text class="d-line" x="220" y="122">P4 read side, summary</text>
+        </g>
+        <g>
+          <rect class="d-box" x="392" y="16" width="164" height="128" rx="8"/>
+          <text class="d-name" x="408" y="40">Connect</text>
+          <line class="d-rule" x1="408" y1="54" x2="540" y2="54"/>
+          <text class="d-line" x="408" y="78">P5 booking events in</text>
+          <text class="d-line" x="408" y="100">push, WhatsApp out</text>
+          <text class="d-line" x="408" y="122">customer-api copy</text>
+        </g>
+        <g>
+          <rect class="d-box" x="580" y="16" width="164" height="128" rx="8"/>
+          <text class="d-name" x="596" y="40">Migrate + clean up</text>
+          <line class="d-rule" x1="596" y1="54" x2="728" y2="54"/>
+          <text class="d-line" x="596" y="78">P6 backfill, shadow</text>
+          <text class="d-line" x="596" y="100">reads, then cut over</text>
+          <text class="d-line" x="596" y="122">P7 drop old tables</text>
+        </g>
+        <g>
+          <path class="d-diamond" d="M192 71l9 9l-9 9l-9 -9z"/>
+          <path class="d-dash" d="M192 89V160"/>
+          <text class="d-gate" x="192" y="178" text-anchor="middle">Gate 1: decisions signed,</text>
+          <text class="d-line" x="192" y="194" text-anchor="middle">API contract reviewed</text>
+        </g>
+        <g>
+          <path class="d-diamond" d="M380 71l9 9l-9 9l-9 -9z"/>
+          <path class="d-dash" d="M380 89V160"/>
+          <text class="d-gate" x="380" y="178" text-anchor="middle">Gate 2: specs green,</text>
+          <text class="d-line" x="380" y="194" text-anchor="middle">must-fail proofs fail</text>
+        </g>
+        <g>
+          <path class="d-diamond" d="M568 71l9 9l-9 9l-9 -9z"/>
+          <path class="d-dash" d="M568 89V160"/>
+          <text class="d-gate" x="568" y="178" text-anchor="middle">Gate 3: one invite per</text>
+          <text class="d-line" x="568" y="194" text-anchor="middle">booking, in both systems</text>
+        </g>
+      </svg>
+    </div>
+    <figcaption>P3 and P4 can run side by side once P2's specs pass. Nothing moves out of the platform before Gate 3.</figcaption>
+  </figure>
+
+  <div class="phases">
+    <div class="phase">
+      <div class="phase-head"><span class="phase-id">P0</span><h3>Decide and agree the contract</h3></div>
+      <ul>
+        <li>Answer the seven decisions in section 9.</li>
+        <li>Write the OpenAPI contract for every endpoint in section 5, keeping today's console paths.</li>
+        <li>Agree event names and payloads with the booking-api and platform owners.</li>
+        <li>Count today's review, invite, reply and report rows. The count sets the backfill effort.</li>
+      </ul>
+      <p class="done"><strong>Done when</strong> the decisions are written down and the console FE, customer-api and platform owners have reviewed the contract.</p>
+    </div>
+    <div class="phase">
+      <div class="phase-head"><span class="phase-id">P1</span><h3>Skeleton</h3></div>
+      <ul>
+        <li>New repo <code>review-service</code> in the push-service layout: Yarn 4, Node 22, NestJS 12, Vitest, oxlint.</li>
+        <li>Prisma 7: <code>prisma.config.ts</code>, the <code>cjs</code> generator, <code>@prisma/adapter-pg</code>, one <code>PrismaService</code>.</li>
+        <li>Validated config, <code>/health</code> (DB and Redis), pino JSON logs, request id, one error filter.</li>
+        <li>Docker: multi-stage image; Compose with <code>review-db</code> and <code>review-redis</code> on <code>gostyle-net</code>; <code>prisma migrate deploy</code> as a step before the app starts.</li>
+        <li>CI: typecheck, lint, unit tests, and a check that the schema and migrations agree.</li>
+      </ul>
+      <p class="done"><strong>Done when</strong> an empty service deploys, <code>/health</code> is green, and the first migration applies to a fresh database.</p>
+    </div>
+    <div class="phase">
+      <div class="phase-head"><span class="phase-id">P2</span><h3>Domain</h3></div>
+      <ul>
+        <li>Port <code>review-rules.ts</code>, <code>review-invite-rules.ts</code> and <code>computeAggregate()</code> with their specs, unchanged.</li>
+        <li>Build the <code>Review</code> (with <code>Reply</code>), <code>ReviewInvite</code> and <code>ReviewReport</code> aggregates: private constructor, <code>create()</code>, <code>restore()</code>.</li>
+        <li>Value objects from section 3, and a coded <code>DomainError</code> for every rule.</li>
+      </ul>
+      <p class="done"><strong>Done when</strong> the domain specs pass and <code>domain/</code> imports no Nest module other than <code>@nestjs/cqrs</code>, and no Prisma or database code.</p>
+    </div>
+    <div class="phase">
+      <div class="phase-head"><span class="phase-id">P3</span><h3>Write side</h3></div>
+      <ul>
+        <li>Prisma models and the first migration, with the hand-written CHECK and partial unique index.</li>
+        <li>Repositories behind ports; every write method takes an optional <code>tx</code>.</li>
+        <li>The command handlers from section 5, each saving data and events in one <code>$transaction</code>.</li>
+        <li>Outbox relay as a BullMQ repeatable job; <code>inbox_event</code> for consumed events.</li>
+        <li>DB specs on a real Postgres, plus <code>scripts/proof.sql</code> with inserts that must fail.</li>
+      </ul>
+      <p class="done"><strong>Done when</strong> every rule in section 3 has a spec or a must-fail proof, and each proof fails the way it should.</p>
+    </div>
+    <div class="phase">
+      <div class="phase-head"><span class="phase-id">P4</span><h3>Read side</h3></div>
+      <ul>
+        <li><code>rating_summary</code> projector, running in the same transaction as the review change.</li>
+        <li>Nightly recompute that logs and repairs any difference.</li>
+        <li>Query handlers, then the public, console, moderation and internal controllers, with Swagger and throttling on public routes.</li>
+      </ul>
+      <p class="done"><strong>Done when</strong> stored summaries equal a full recompute on seeded data, and every endpoint passes its contract test.</p>
+    </div>
+    <div class="phase">
+      <div class="phase-head"><span class="phase-id">P5</span><h3>Connect</h3></div>
+      <ul>
+        <li>Consume <code>bookings.booking.completed.v1</code> from gostyle-platform.</li>
+        <li>In booking-api, forward <code>booking.completed</code> out of its outbox. Today the publisher chain ends in <code>LoggingEventPublisher</code>.</li>
+        <li>Move the WhatsApp invite sender and the contact lookup behind ports in review-service.</li>
+        <li>Push "the salon replied" through <code>POST /notifications/user</code>.</li>
+        <li>In customer-api, add a local rating table fed by <code>rating.summary.changed.v1</code>, and switch <code>discoverable_salons()</code> and the map pins to it.</li>
+      </ul>
+      <p class="done"><strong>Done when</strong> a completed booking in either system produces exactly one invite, and customer-api shows ratings without reading <code>storefront_review</code>.</p>
+    </div>
+    <div class="phase">
+      <div class="phase-head"><span class="phase-id">P6</span><h3>Migrate and cut over</h3></div>
+      <ul>
+        <li>Backfill: copy the four platform tables into review-db with the same ids, then build the summaries.</li>
+        <li>Shadow mode: the platform keeps serving while review-service gets the same events. A compare job checks counts and averages per storefront.</li>
+        <li>Switch reads (console, public, customer-api) to review-service.</li>
+        <li>Switch writes in one deploy: platform listener and routes off, review-service consumer on. Freeze writes briefly to copy the last changes.</li>
+      </ul>
+      <p class="done"><strong>Done when</strong> the shadow compare stays clean for the agreed period and all review traffic reaches review-service.</p>
+    </div>
+    <div class="phase">
+      <div class="phase-head"><span class="phase-id">P7</span><h3>Clean up and harden</h3></div>
+      <ul>
+        <li>Remove review code from <code>nest-storefront</code>, the gostyle-api controllers, and customer-api's <code>StorefrontReview</code> model.</li>
+        <li>Back up, then drop the four platform tables in a platform migration.</li>
+        <li>Cleanup job for expired unused invites and closed reports past retention.</li>
+        <li>Dashboards: outbox lag, invites minted vs redeemed, age of the oldest open report.</li>
+      </ul>
+      <p class="done"><strong>Done when</strong> no code outside review-service touches review tables.</p>
+    </div>
+    <div class="phase">
+      <div class="phase-head"><span class="phase-id">Later</span><h3>Close the remaining gaps</h3></div>
+      <ul>
+        <li>Stylist ratings: <code>review_staff_rating</code>, a stylist summary, and customer-api's expert profile reading it.</li>
+        <li>In-app reviews for logged-in customers, still redeeming the booking's invite row.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- 9 -->
+<section id="decide">
+  <div class="sec-head">
+    <span class="sec-num">09</span>
+    <h2>Decisions, open questions and risks</h2>
+  </div>
+  <h3>Decisions for the team</h3>
+  <div class="frame">
+    <table>
+      <thead><tr><th style="width:4%">#</th><th style="width:24%">Decision</th><th style="width:30%">Options</th><th>Recommendation</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td>Extract today's reviews, or build a new service beside them?</td><td>Extract / build new scope only</td><td><strong>Extract.</strong> Building beside them gives one salon two ratings.</td></tr>
+        <tr><td>2</td><td>What can be rated?</td><td>Salon only / salon + stylist / + each service</td><td><strong>Salon now; stylist later</strong>, as extra stars on the same review. That keeps one review per booking.</td></tr>
+        <tr><td>3</td><td>How do events cross services?</td><td>HTTP from each outbox relay / shared Redis streams / a message broker</td><td><strong>HTTP from the relay</strong>, signed with a per-caller key and deduped by event id. Revisit a broker when a third consumer appears.</td></tr>
+        <tr><td>4</td><td>Who sends the invite message?</td><td>review-service / the platform keeps sending</td><td><strong>review-service.</strong> The plain token exists only at mint time, and only there.</td></tr>
+        <tr><td>5</td><td>In-app reviews for logged-in users?</td><td>Link only / app as well</td><td><strong>App as well, after launch.</strong> It still redeems the invite row. Needs the identity mapping below.</td></tr>
+        <tr><td>6</td><td>Stored or computed rating?</td><td>Compute on every read (today) / stored summary</td><td><strong>Stored summary</strong> with a nightly recompute. customer-api can't run the query across services.</td></tr>
+        <tr><td>7</td><td>Do consoles call review-service directly, or through gostyle-api?</td><td>Direct with the platform JWT / proxy in gostyle-api</td><td><strong>Direct.</strong> booking-api already checks platform JWTs, so the pattern exists.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Open questions</h3>
+  <ul class="tight prose">
+    <li>How does a customer-api account map to a platform <code>customer_id</code>? The platform gives the same person a different <code>customer_id</code> at each salon. In-app reviews and reply pushes need this mapping.</li>
+    <li>After the move, who answers the contact lookup (name and phone): a platform internal API or customer-api?</li>
+    <li>Are reviews live in production, and how many rows exist?</li>
+    <li>Are mobile bookings copied into the platform anywhere? I found no such path in the code.</li>
+    <li>Does anything still read customer-api's <code>Salon.rating</code> and <code>Salon.reviews</code> columns?</li>
+    <li>Should HQ get hide, restore and remove actions? No code sets REMOVED today.</li>
+    <li>How long do expired invites, closed reports and REMOVED reviews stay?</li>
+  </ul>
+
+  <h3>Risks</h3>
+  <div class="frame">
+    <table>
+      <thead><tr><th style="width:26%">Risk</th><th style="width:28%">Impact</th><th>Mitigation</th></tr></thead>
+      <tbody>
+        <tr><td>customer-api discovery breaks at cutover</td><td>Ratings vanish from discover and "top rated"</td><td>Ship customer-api's local copy and backfill in P5, before any table moves.</td></tr>
+        <tr><td>Stored summary drifts from the rows</td><td>Wrong average on public pages</td><td>Update it in the same transaction; the nightly recompute logs and repairs any difference.</td></tr>
+        <tr><td>A plain token leaks through events or logs</td><td>Anyone holding it can review that booking</td><td>Token lives only between mint and send. Events carry the invite id; logs carry the booking id.</td></tr>
+        <tr><td>Both platform and review-service mint invites during migration</td><td>Customer gets two WhatsApp messages</td><td>Turn the platform listener off and the review-service consumer on in one deploy.</td></tr>
+        <tr><td>Wrong tenant on a public route</td><td>A review lands on another salon's page</td><td>Tenant only from the invite row or the JWT, never a default.</td></tr>
+        <tr><td>The booking-api forwarder slips</td><td>Mobile bookings still get no invites</td><td>Make it a P5 exit criterion; Gate 3 checks both systems.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<footer class="sources">
+  <div class="eyebrow" style="margin-bottom:8px">Sources read for this report</div>
+  <ul>
+    <li>push-notification-service @ <code>6d4b153</code>: <code>src/**</code>, <code>test/unit/*</code>, <code>docker-compose.yml</code>, <code>docker-stack.yml</code>, <code>Dockerfile</code>, <code>README.md</code>, <code>docs/PUSH_AUDIT.md</code></li>
+    <li>gostyle-platform: <code>packages/nest-storefront</code> (review rules, invite rules, submit and invite handlers, invite listener), <code>apps/gostyle-api/src/public-reviews.controller.ts</code>, <code>platform-review-reports.controller.ts</code>, <code>prisma/schema/storefront.prisma</code>, review migrations, <code>CONVENTIONS.md</code></li>
+    <li>gostyle-booking-api: <code>CLAUDE.md</code>, <code>prisma.config.ts</code>, <code>prisma/schema.prisma</code>, <code>persistence.module.ts</code>, <code>outbox-relay.service.ts</code>, <code>logging-event-publisher.ts</code>, <code>push-notification.client.ts</code>, <code>token-verifier.service.ts</code></li>
+    <li>gostyle-customer-api: <code>apps/platform_data/models.py</code>, <code>apps/salons/selectors.py</code>, <code>apps/salons/expert_profile.py</code>, <code>apps/salons/models.py</code>, <code>config/settings/base.py</code></li>
+  </ul>
+</footer>
+
+</div>
