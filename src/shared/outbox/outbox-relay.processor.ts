@@ -1,7 +1,8 @@
 import { InjectQueue, Processor, WorkerHost } from '@nestjs/bullmq';
-import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
+import { Injectable, Logger, OnApplicationBootstrap, OnModuleDestroy } from '@nestjs/common';
 import type { Job, Queue } from 'bullmq';
 import { AppConfig } from '../config/app-config';
+import { retryUntilDone } from '../redis/retry-until-done';
 import { OutboxRelay } from './outbox-relay';
 
 export const OUTBOX_QUEUE = 'review-outbox';
@@ -26,21 +27,33 @@ export class OutboxRelayProcessor extends WorkerHost {
 }
 
 @Injectable()
-export class OutboxRelayScheduler implements OnApplicationBootstrap {
+export class OutboxRelayScheduler implements OnApplicationBootstrap, OnModuleDestroy {
   private static readonly log = new Logger(OutboxRelayScheduler.name);
+  private registration: { stop: () => void } | null = null;
 
   constructor(
     @InjectQueue(OUTBOX_QUEUE) private readonly queue: Queue,
     private readonly config: AppConfig,
   ) {}
 
-  async onApplicationBootstrap(): Promise<void> {
+  onApplicationBootstrap(): void {
     // Upsert, so a restart or a second replica does not stack schedules.
-    await this.queue.upsertJobScheduler(
-      SCHEDULER_ID,
-      { every: this.config.outboxRelayIntervalMs },
-      { name: 'drain', opts: { removeOnComplete: true, removeOnFail: 50 } },
+    // Retried in the background: Redis being down at boot must not kill the app.
+    this.registration = retryUntilDone(
+      'outbox relay schedule',
+      async () => {
+        await this.queue.upsertJobScheduler(
+          SCHEDULER_ID,
+          { every: this.config.outboxRelayIntervalMs },
+          { name: 'drain', opts: { removeOnComplete: true, removeOnFail: 50 } },
+        );
+        OutboxRelayScheduler.log.log(`outbox relay every ${this.config.outboxRelayIntervalMs}ms`);
+      },
+      OutboxRelayScheduler.log,
     );
-    OutboxRelayScheduler.log.log(`outbox relay every ${this.config.outboxRelayIntervalMs}ms`);
+  }
+
+  onModuleDestroy(): void {
+    this.registration?.stop();
   }
 }

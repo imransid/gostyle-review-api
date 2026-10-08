@@ -1,8 +1,9 @@
 import { InjectQueue, Processor, WorkerHost } from '@nestjs/bullmq';
-import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
+import { Injectable, Logger, OnApplicationBootstrap, OnModuleDestroy } from '@nestjs/common';
 import { CommandBus } from '@nestjs/cqrs';
 import type { Job, Queue } from 'bullmq';
 import { AppConfig } from '../../../shared/config/app-config';
+import { retryUntilDone } from '../../../shared/redis/retry-until-done';
 import { RecomputeRatingSummariesCommand } from '../commands/recompute-rating-summaries/recompute-rating-summaries.command';
 import { InviteDelivery } from '../invites/invite-delivery';
 
@@ -41,28 +42,45 @@ export class ReviewJobsProcessor extends WorkerHost {
 }
 
 @Injectable()
-export class ReviewJobsScheduler implements OnApplicationBootstrap {
+export class ReviewJobsScheduler implements OnApplicationBootstrap, OnModuleDestroy {
   private static readonly log = new Logger(ReviewJobsScheduler.name);
+  private registration: { stop: () => void } | null = null;
 
   constructor(
     @InjectQueue(JOBS_QUEUE) private readonly queue: Queue,
     private readonly config: AppConfig,
   ) {}
 
-  async onApplicationBootstrap(): Promise<void> {
-    await this.queue.upsertJobScheduler(
-      'nightly-recompute',
-      { pattern: this.config.recomputeCron, tz: this.config.recomputeTimezone },
-      {
-        name: RECOMPUTE_JOB,
-        opts: { attempts: 3, backoff: { type: 'exponential', delay: 60_000 }, removeOnComplete: 30, removeOnFail: 30 },
+  onApplicationBootstrap(): void {
+    // Retried in the background: Redis being down at boot must not kill the app.
+    this.registration = retryUntilDone(
+      'nightly recompute schedule',
+      async () => {
+        await this.queue.upsertJobScheduler(
+          'nightly-recompute',
+          { pattern: this.config.recomputeCron, tz: this.config.recomputeTimezone },
+          {
+            name: RECOMPUTE_JOB,
+            opts: {
+              attempts: 3,
+              backoff: { type: 'exponential', delay: 60_000 },
+              removeOnComplete: 30,
+              removeOnFail: 30,
+            },
+          },
+        );
+        // Retention is configuration only for now: NOTHING is scheduled to delete.
+        ReviewJobsScheduler.log.log(
+          `nightly recompute at "${this.config.recomputeCron}" ${this.config.recomputeTimezone}; ` +
+            `retention configured (invites ${this.config.retention.expiredInviteDays}d, ` +
+            `closed reports ${this.config.retention.closedReportDays}d) but not scheduled`,
+        );
       },
+      ReviewJobsScheduler.log,
     );
-    // Retention is configuration only for now: NOTHING is scheduled to delete.
-    ReviewJobsScheduler.log.log(
-      `nightly recompute at "${this.config.recomputeCron}" ${this.config.recomputeTimezone}; ` +
-        `retention configured (invites ${this.config.retention.expiredInviteDays}d, ` +
-        `closed reports ${this.config.retention.closedReportDays}d) but not scheduled`,
-    );
+  }
+
+  onModuleDestroy(): void {
+    this.registration?.stop();
   }
 }
