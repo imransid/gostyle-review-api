@@ -80,6 +80,9 @@ export class AppConfig {
   readonly permissionCacheTtlMs!: number;
   readonly httpTimeoutMs!: number;
 
+  /** Serve Swagger in production too. Outside production it is always served. */
+  readonly swaggerEnabled!: boolean;
+
   get isProduction(): boolean {
     return this.nodeEnv === 'production';
   }
@@ -244,6 +247,9 @@ export function loadConfig(env: Env, readFile: ReadFile = defaultReadFile): AppC
     },
     permissionCacheTtlMs: int('PERMISSION_CACHE_TTL_MS', 30_000, 0, 600_000),
     httpTimeoutMs: int('HTTP_TIMEOUT_MS', 5_000, 100, 60_000),
+    // Exactly `true`, untrimmed: any other value, a typo included, leaves the
+    // docs off, which is the safe side for a switch that exposes them.
+    swaggerEnabled: env.SWAGGER_ENABLED === 'true',
   });
 
   if (config.nodeEnv === 'production') {

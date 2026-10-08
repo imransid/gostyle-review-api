@@ -10,7 +10,8 @@ import { edgeValidationPipe } from './shared/http/validation';
  * e2e specs boot exactly what production boots.
  */
 export function configureApp(app: NestExpressApplication): AppConfig {
-  app.useLogger(app.get(Logger));
+  const log = app.get(Logger);
+  app.useLogger(log);
   app.disable('x-powered-by');
   const config = app.get(AppConfig);
 
@@ -22,7 +23,15 @@ export function configureApp(app: NestExpressApplication): AppConfig {
   app.useGlobalFilters(new DomainErrorFilter());
   app.enableShutdownHooks();
 
-  if (!config.isProduction) {
+  // Production serves the docs only when SWAGGER_ENABLED=true says so, for a
+  // testing window, without touching NODE_ENV (docs/DECISIONS.md D27).
+  if (!config.isProduction || config.swaggerEnabled) {
+    if (config.isProduction) {
+      log.warn(
+        'Swagger is ON in production (SWAGGER_ENABLED=true); turn it off after testing',
+        'Swagger',
+      );
+    }
     const doc = new DocumentBuilder()
       .setTitle('Review Service')
       .setDescription(

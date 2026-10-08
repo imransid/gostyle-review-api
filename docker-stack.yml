@@ -81,6 +81,7 @@ services:
       PUSH_API_URL: http://push-app:3351
       REVIEW_PUBLIC_BASE_URL: ${REVIEW_PUBLIC_BASE_URL:?set REVIEW_PUBLIC_BASE_URL}
       INVITE_SENDER: ${INVITE_SENDER:-log}
+      SWAGGER_ENABLED: ${SWAGGER_ENABLED:-false}
       DATABASE_URL_FILE: /run/secrets/review_database_url
       REDIS_PASSWORD_FILE: /run/secrets/review_redis_password
       JWT_ACCESS_SECRET_FILE: /run/secrets/jwt_access_secret

@@ -114,6 +114,14 @@ describe('loadConfig', () => {
     ]);
   });
 
+  it('turns Swagger on only for the exact value true', () => {
+    expect(loadConfig(base()).swaggerEnabled).toBe(false);
+    expect(loadConfig({ ...base(), SWAGGER_ENABLED: 'true' }).swaggerEnabled).toBe(true);
+    for (const v of ['1', 'TRUE ', 'yes', 'True', 'true ', 'false', '']) {
+      expect(loadConfig({ ...base(), SWAGGER_ENABLED: v }).swaggerEnabled, JSON.stringify(v)).toBe(false);
+    }
+  });
+
   it('bounds numeric tunables', () => {
     expect(problems({ ...base(), INVITE_SEND_RETRY_ATTEMPTS: '-1' })).toEqual([
       'INVITE_SEND_RETRY_ATTEMPTS must be a whole number between 0 and 20',

@@ -77,3 +77,7 @@ transaction as the change, at least once; every receiver dedupes by event id.
 
 `.env.example` lists every variable. Missing required values stop the boot with
 every problem named at once. Secrets accept `<NAME>_FILE`.
+
+| Variable | Default | Notes |
+| --- | --- | --- |
+| `SWAGGER_ENABLED` | `false` | Exactly `true` serves Swagger (`/docs`, `/docs-json`) in production too; turn it off after testing. Outside production it is always on. |

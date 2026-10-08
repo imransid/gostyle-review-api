@@ -342,3 +342,22 @@ Prisma 7 with `@prisma/adapter-pg` runs on `@prisma/client` alone, and
 migrations run from the separate `migrate` image, which installs dev
 dependencies. So `prisma` and `dotenv` (read only by `prisma.config.ts`) moved
 to `devDependencies`: a smaller runtime image with no network step at install.
+
+## D27. Swagger in production is its own switch, `SWAGGER_ENABLED` (after P5)
+
+**Asked:** a way to open Swagger in production for testing.
+
+**Not NODE_ENV:** setting `NODE_ENV=development` on the production service
+would show the docs, and would also drop the 32-character minimum on the
+service keys (`app-config.ts`); Express takes its own `env` setting from it
+too. A testing convenience must not quietly weaken boot validation, so the
+docs get a flag of their own and `NODE_ENV` stays `production`.
+
+**The rule:** outside production Swagger is always served, as before. In
+production it is served at `/docs` and `/docs-json` only when
+`SWAGGER_ENABLED` is exactly `true`; anything else, a typo included, leaves it
+off. Every route keeps its guards; the docs show route shapes (the
+`/internal/*` ones too), not data. Boot logs a warning line while it is on.
+
+**To use:** `SWAGGER_ENABLED=true docker stack deploy ...`, test, then deploy
+again without it (the stack defaults it to `false`).
