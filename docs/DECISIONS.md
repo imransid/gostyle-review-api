@@ -331,3 +331,14 @@ customer's reviews and invites). No service emits a customer-deleted event
 today, so no consumer is wired; inventing an event name another team must
 then emit would be a contract nobody agreed. Wire it in `COMPLETION_EVENTS`'s
 sibling when the producer exists.
+
+## D26. The Prisma CLI is a dev dependency (P5, found by the final image build)
+
+booking-api keeps `prisma` (the CLI) in `dependencies`. Here the final
+rebuild of the runtime image failed in `yarn workspaces focus --production`:
+`@prisma/engines` (pulled in by the CLI) runs an install script that downloads
+engine binaries, and that download failed. The runtime never needs them:
+Prisma 7 with `@prisma/adapter-pg` runs on `@prisma/client` alone, and
+migrations run from the separate `migrate` image, which installs dev
+dependencies. So `prisma` and `dotenv` (read only by `prisma.config.ts`) moved
+to `devDependencies`: a smaller runtime image with no network step at install.
