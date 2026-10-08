@@ -12,6 +12,7 @@ import {
   type DomainErrorCode,
   type DomainErrorDetail,
 } from '../../review/domain/domain.error';
+import { DependencyUnavailableError } from '../../review/domain/ports/contact-directory.port';
 
 /**
  * THE ONE PLACE a domain error code becomes an HTTP status.
@@ -62,6 +63,21 @@ export function toEnvelope(exception: unknown): { status: number; body: ErrorEnv
       status: STATUS_BY_CODE[exception.code] ?? HttpStatus.INTERNAL_SERVER_ERROR,
       body: {
         error: { code: exception.code, message: exception.message, details: exception.details },
+      },
+    };
+  }
+
+  // Our fault, not the caller's: the owner of a fact we needed did not answer.
+  // A 503 tells the caller to retry; it is never answered with a guess.
+  if (exception instanceof DependencyUnavailableError) {
+    return {
+      status: HttpStatus.SERVICE_UNAVAILABLE,
+      body: {
+        error: {
+          code: 'DEPENDENCY_UNAVAILABLE',
+          message: `${exception.dependency} is unavailable; try again shortly.`,
+          details: [],
+        },
       },
     };
   }

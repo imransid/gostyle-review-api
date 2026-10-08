@@ -68,6 +68,8 @@ export class AppConfig {
   /** Retries of a FAILED invite send. 0 reproduces the platform: never resend. */
   readonly inviteSendRetryAttempts!: number;
 
+  /** BullMQ key prefix, so two deployments (or a test run) never share queues. */
+  readonly queuePrefix!: string;
   readonly outboxRelayIntervalMs!: number;
   readonly recomputeCron!: string;
   readonly recomputeTimezone!: string;
@@ -232,6 +234,7 @@ export function loadConfig(env: Env, readFile: ReadFile = defaultReadFile): AppC
     inviteSender,
     whatsapp,
     inviteSendRetryAttempts: int('INVITE_SEND_RETRY_ATTEMPTS', 5, 0, 20),
+    queuePrefix: raw('QUEUE_PREFIX') ?? 'review',
     outboxRelayIntervalMs: int('OUTBOX_RELAY_INTERVAL_MS', 1000, 200, 60_000),
     recomputeCron: raw('RECOMPUTE_CRON') ?? '0 3 * * *',
     recomputeTimezone: raw('RECOMPUTE_TZ') ?? 'UTC',

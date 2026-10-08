@@ -1,6 +1,7 @@
 import { defineConfig } from 'vitest/config';
 
-// The booted app over HTTP, against the local review-db and review-redis.
+// The booted app over HTTP, against the local review_test database, the local
+// review-redis and a fake gostyle-api (test/support/fake-platform.ts).
 export default defineConfig({
   test: {
     globals: true,

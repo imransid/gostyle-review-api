@@ -11,6 +11,23 @@ import {
 } from '../shared/outbox/outbox-relay.processor';
 import { PrismaInbox, PrismaOutboxWriter } from '../shared/outbox/prisma-outbox';
 import { PrismaUnitOfWork } from '../shared/prisma/prisma-tx';
+import { HttpPermissionResolver, PERMISSION_RESOLVER } from '../shared/auth/permission-resolver';
+import { PlatformJwtGuard } from '../shared/auth/platform-jwt.guard';
+import { ServiceKeyGuard } from '../shared/auth/service-key.guard';
+import { JOBS_QUEUE, ReviewJobsProcessor, ReviewJobsScheduler } from './application/jobs/review-jobs';
+import { GetInviteHandler } from './application/queries/get-invite/get-invite.handler';
+import {
+  GetConsoleAggregateHandler,
+  GetRatingSummariesHandler,
+  GetRatingSummaryHandler,
+} from './application/queries/get-rating-summary/get-rating-summary.handlers';
+import { ListConsoleReviewsHandler } from './application/queries/list-console-reviews/list-console-reviews.handler';
+import { ListPublicReviewsHandler } from './application/queries/list-public-reviews/list-public-reviews.handler';
+import { GetReportHandler, ListReportQueueHandler } from './application/queries/report-queue/report-queue.handlers';
+import { ConsoleReviewsController } from './presentation/console-reviews.controller';
+import { InternalController } from './presentation/internal.controller';
+import { ReviewModerationController, ReviewReportsController } from './presentation/moderation.controller';
+import { PublicReviewsController } from './presentation/public-reviews.controller';
 import { CLOCK, systemClock } from './application/clock';
 import { CreateReviewInviteHandler } from './application/commands/create-review-invite/create-review-invite.handler';
 import { DeleteReplyHandler } from './application/commands/delete-reply/delete-reply.handler';
@@ -57,14 +74,41 @@ const COMMAND_HANDLERS = [
   EraseCustomerReviewsHandler,
 ];
 
+const QUERY_HANDLERS = [
+  GetInviteHandler,
+  ListPublicReviewsHandler,
+  GetRatingSummaryHandler,
+  GetRatingSummariesHandler,
+  ListConsoleReviewsHandler,
+  GetConsoleAggregateHandler,
+  ListReportQueueHandler,
+  GetReportHandler,
+];
+
 /**
  * Every port is bound HERE and nowhere else: swapping an adapter is one line.
  * Application code receives ports by Symbol and never imports infrastructure/.
  */
 @Module({
-  imports: [CqrsModule, BullModule.registerQueue({ name: OUTBOX_QUEUE })],
+  imports: [
+    CqrsModule,
+    BullModule.registerQueue({ name: OUTBOX_QUEUE }, { name: JOBS_QUEUE }),
+  ],
+  controllers: [
+    PublicReviewsController,
+    ConsoleReviewsController,
+    ReviewReportsController,
+    ReviewModerationController,
+    InternalController,
+  ],
   providers: [
     ...COMMAND_HANDLERS,
+    ...QUERY_HANDLERS,
+    PlatformJwtGuard,
+    ServiceKeyGuard,
+    { provide: PERMISSION_RESOLVER, useClass: HttpPermissionResolver },
+    ReviewJobsProcessor,
+    ReviewJobsScheduler,
     RatingProjector,
     { provide: CLOCK, useValue: systemClock },
     { provide: UNIT_OF_WORK, useClass: PrismaUnitOfWork },

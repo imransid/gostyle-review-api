@@ -209,3 +209,50 @@ their own name. Nothing fails.
 **To change:** give `PlatformDirectoryClient.find` (or a second adapter behind
 `CONTACT_DIRECTORY`) a `booking_api` branch once customer-api exposes contact
 details to services.
+
+## D15. The projector landed with the write side (P4 item, built in P3)
+
+P4 lists "a rating_summary projector, run in the same transaction as the review
+change". Every P3 handler that changes visibility (submit, hide, restore,
+remove, uphold) needs it inside its own transaction, so it was built with them
+(`application/rating/rating-projector.ts`, see D11). P4 added what reads it:
+the public and console aggregates, `GET /internal/ratings`, the nightly
+recompute job and `POST /internal/ratings/recompute`.
+
+## D16. Read-side choices (P4)
+
+- **Console list summary and console aggregate come from the stored summary**,
+  not a per-request recount as on the platform. Same numbers (proved: the
+  seeded e2e compares every served rating with an independent recount from the
+  rows), and the console and the public page can never disagree.
+- **`GET /v1/public/review-invites/:token` answers 200 with `status`**
+  (`OPEN` / `USED` / `EXPIRED`) so the form can say why it is closed; only an
+  unknown token is a 404. Submitting still answers 404 / 409 / 410 / 422.
+- **The HQ queue's `salonName` and `storefrontSlug` come from the invite's
+  display snapshot** (D9), joined through `review.invite_id`. They can lag a
+  rename until P6's backfill/refresh; the queue rows also carry
+  `storefrontId` and `branchId` so HQ can always resolve the live name.
+- **The console aggregate answers the empty aggregate** for a branch with no
+  summary row, where the platform could answer `STOREFRONT_NOT_FOUND` (D13).
+
+## D17. Submit throttling is in memory, per replica (P4)
+
+`@nestjs/throttler` with its default in-memory storage: 10 an hour and 40 a
+day per client IP on `POST /v1/public/reviews/:token`, nowhere else (the
+platform's limits and names). Exact with the single replica `docker-stack.yml`
+runs. **To change** (more replicas): give `ThrottlerModule.forRoot` a Redis
+storage (review-redis is already there). Client IP comes from
+`TRUST_PROXY_HOPS` (default 0, so a direct client cannot pick its own IP by
+sending `X-Forwarded-For`); set it to 1 behind nginx.
+
+## D18. Retention is configuration only (P4, open question §9)
+
+**Question:** how long do expired invites, closed reports and removed reviews
+stay?
+
+**Choice:** `RETENTION_EXPIRED_INVITE_DAYS` (default 90) and
+`RETENTION_CLOSED_REPORT_DAYS` (default 365) are validated and logged at boot.
+**Nothing deletes.** No job is scheduled and no delete SQL ships, as asked.
+REMOVED reviews are kept indefinitely: deleting one would free its booking for
+a second review, which is the fraud hole the unique key closes. **To change:**
+the P7 cleanup job reads these two values.
