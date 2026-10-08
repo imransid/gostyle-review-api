@@ -82,3 +82,69 @@ platform's review migrations go further and guard every statement. Followed the
 platform: generated `CREATE TABLE` / `CREATE INDEX` were also made
 `IF NOT EXISTS`, enums and constraints are wrapped in
 `DO $$ … duplicate_object …`. A migration interrupted half way can be re-run.
+
+## D6. The ported rules changed by one import line each (P2)
+
+`review-rules.ts`, `review-reply-rules.ts` and `review-report-rules.ts` import
+`FieldError` from the platform's `section-schema.ts`, a 600-line storefront
+editor module. Only the 14-line `FieldError` / `FieldErrorCode` block came
+across, verbatim, as `domain/services/field-error.ts`; the three imports point
+at it. `review-invite-message.ts` imports `InviteLocale` from
+`ports/invite-sender.port.ts` instead of `ports/review-invite-sender.port.ts`.
+Nothing else in the five rule files changed, and their five specs are
+byte-identical to the platform's (74 tests).
+
+## D7. An upheld report never resurrects a REMOVED review (P2)
+
+**Code says:** the platform's `PrismaReviewReportReviewRepository.resolve`
+sets the review to HIDDEN unconditionally when a report is upheld.
+
+**Why it differs here:** in the platform nothing can set REMOVED, so the
+difference never showed. Here HQ can remove a review, and "REMOVED is final"
+is a hard rule. `Review.hideForUpheldReport` moves PUBLISHED to HIDDEN, keeps
+HIDDEN hidden (re-stamping who decided and why, as the platform does), and
+leaves REMOVED alone. The report still becomes UPHELD.
+
+## D8. Hide, restore and remove require a reason (P2)
+
+The plan adds HQ hide / restore / remove (open question "Should HQ get hide,
+restore and remove actions?" answered by the task: yes). The platform has no
+such endpoints to copy. They take a note validated by the ported
+`validateResolutionNote` (10 to 500 characters), the same rule an uphold or a
+dismissal already follows, and it is stamped on the review as
+`moderation_note`. Reason: these move a real customer's words off a public
+page, which is exactly the case the platform says "always needs words".
+**To change:** drop the `validateResolutionNote` call in `Review.moveTo`.
+
+## D9. `review_invite.author_display_name` is not carried over (P2)
+
+The platform's invite has this column, but `CreateReviewInviteHandler` always
+writes null and `SubmitReviewHandler` never reads it (the name is read from the
+contact at submit time). Dropped. A P6 backfill loses nothing (every value is
+null). The invite gains `salon_name`, `storefront_slug` and `locale` display
+snapshots instead: the review form and the HQ queue need the salon's name, and
+review-service has no storefront table to join.
+
+## D10. A failed invite send is retried with a fresh token (P2, wired in P5)
+
+**Code says:** the platform's listener mints, then sends; when the send throws,
+the outbox redelivers, `CreateReviewInvite` finds the invite (created: false)
+and the listener returns before sending. So a failed send is never re-sent:
+the token is gone and the customer never gets a link. The comment there says
+"a failed send is retried by the outbox and finds the invite already there";
+the code's retry finds it and stops.
+
+**Task says:** "a failed send retries and finds the invite already there, and a
+successful send is never repeated."
+
+**Choice:** make the retry real without ever storing the token. Each invite
+tracks `send_status`. A send the channel DEFINITELY refused (connection
+refused, 5xx, 429) moves it to RETRYING, and a retry job (payload: invite id
+only) mints a NEW token for the SAME invite, swaps the stored hash under a
+compare-and-set (`WHERE send_status = 'RETRYING' AND used_at IS NULL`), and
+sends again. That is safe because the old link reached nobody. A send that
+TIMED OUT may have landed, so it becomes UNKNOWN and is never retried: a
+second message would be worse than none. SENT is terminal.
+
+**To change:** `INVITE_SEND_RETRY_ATTEMPTS=0` gives the platform's exact
+behaviour (a failed send is recorded as FAILED and never re-sent).
