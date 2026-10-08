@@ -2,6 +2,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform, Type } from 'class-transformer';
 import {
   ArrayMaxSize,
+  IsObject,
   IsArray,
   IsIn,
   IsInt,
@@ -196,4 +197,40 @@ export class RatingSummariesQueryDto {
   @Min(1)
   @Max(500)
   limit?: number;
+}
+
+/**
+ * An event from a source's outbox relay. Exactly these fields: the forwarders
+ * in gostyle-platform and gostyle-booking-api send nothing else.
+ */
+export class IncomingEventDto {
+  @ApiProperty({ description: "The source's outbox row id. Dedupe key, with the caller." })
+  @IsString()
+  @MaxLength(200)
+  id!: string;
+
+  @ApiProperty({ example: 'bookings.booking.completed.v1' })
+  @IsString()
+  @MaxLength(200)
+  type!: string;
+
+  @ApiProperty({ format: 'uuid', description: 'The booking id.' })
+  @IsString()
+  @MaxLength(200)
+  aggregateId!: string;
+
+  @ApiPropertyOptional({ format: 'uuid', nullable: true })
+  @IsOptional()
+  @IsString()
+  tenantId?: string | null;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  occurredAt?: string;
+
+  @ApiPropertyOptional({ type: 'object', additionalProperties: true })
+  @IsOptional()
+  @IsObject()
+  payload?: Record<string, unknown>;
 }

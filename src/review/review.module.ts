@@ -53,6 +53,17 @@ import { REVIEW_REPOSITORY } from './domain/ports/review.repository';
 import { STOREFRONT_DIRECTORY } from './domain/ports/storefront-directory.port';
 import { UNIT_OF_WORK } from './domain/ports/unit-of-work.port';
 import { PlatformDirectoryClient } from './infrastructure/http/platform-directory.client';
+import { AppConfig } from '../shared/config/app-config';
+import { BookingCompletedConsumer } from './application/consumers/booking-completed.consumer';
+import { ReplyPushHandler } from './application/event-handlers/reply-push.handler';
+import { InviteDelivery } from './application/invites/invite-delivery';
+import { INVITE_SENDER } from './domain/ports/invite-sender.port';
+import { PUSH_RECIPIENTS, PUSH_SENDER } from './domain/ports/push-sender.port';
+import { CustomerApiRatingSink } from './infrastructure/http/customer-api-rating.sink';
+import { PushNotificationClient } from './infrastructure/http/push-notification.client';
+import { BookingSourcePushRecipients } from './infrastructure/http/push-recipients';
+import { LogInviteSender } from './infrastructure/senders/log-invite-sender';
+import { WhatsAppInviteSender } from './infrastructure/senders/whatsapp-invite-sender';
 import { PrismaRatingSummaryRepository } from './infrastructure/persistence/prisma-rating-summary.repository';
 import { PrismaReviewInviteRepository } from './infrastructure/persistence/prisma-review-invite.repository';
 import { PrismaReviewReportRepository } from './infrastructure/persistence/prisma-review-report.repository';
@@ -121,8 +132,27 @@ const QUERY_HANDLERS = [
     PlatformDirectoryClient,
     { provide: STOREFRONT_DIRECTORY, useExisting: PlatformDirectoryClient },
     { provide: CONTACT_DIRECTORY, useExisting: PlatformDirectoryClient },
+    // The invite channel: INVITE_SENDER=log in development, whatsapp in production.
+    LogInviteSender,
+    WhatsAppInviteSender,
+    {
+      provide: INVITE_SENDER,
+      inject: [AppConfig, LogInviteSender, WhatsAppInviteSender],
+      useFactory: (config: AppConfig, log: LogInviteSender, wa: WhatsAppInviteSender) =>
+        config.inviteSender === 'whatsapp' ? wa : log,
+    },
+    { provide: PUSH_SENDER, useClass: PushNotificationClient },
+    { provide: PUSH_RECIPIENTS, useClass: BookingSourcePushRecipients },
+    InviteDelivery,
+    BookingCompletedConsumer,
     // Where relayed events go. Each destination names the event types it takes.
-    { provide: EVENT_DESTINATIONS, useFactory: (): EventDestination[] => [] },
+    CustomerApiRatingSink,
+    ReplyPushHandler,
+    {
+      provide: EVENT_DESTINATIONS,
+      inject: [CustomerApiRatingSink, ReplyPushHandler],
+      useFactory: (ratings: CustomerApiRatingSink, push: ReplyPushHandler): EventDestination[] => [ratings, push],
+    },
     OutboxRelay,
     OutboxRelayProcessor,
     OutboxRelayScheduler,

@@ -256,3 +256,78 @@ stay?
 REMOVED reviews are kept indefinitely: deleting one would free its booking for
 a second review, which is the fraud hole the unique key closes. **To change:**
 the P7 cleanup job reads these two values.
+
+## D19. The event contract between the booking systems and review-service (P5)
+
+`POST /internal/events`, callers `platform` and `booking-api`, each with its
+own key. Body: `{ id, type, aggregateId, tenantId?, occurredAt?, payload }`,
+exactly these fields (the DTO refuses others). `id` is the source's outbox row
+id; `(caller, id)` is the inbox key. Accepted pairs:
+
+| caller        | type                            | booking_source |
+| ------------- | ------------------------------- | -------------- |
+| `platform`    | `bookings.booking.completed.v1` | `platform`     |
+| `booking-api` | `booking.completed`             | `booking_api`  |
+
+Anything else is answered `{ outcome: "ignored" }`. A consumed event is
+always 200 with its outcome (`invite_minted`, `duplicate_event`,
+`already_invited`, `no_storefront`, `tenant_mismatch`, `malformed`); only a
+dependency outage is 503, which the senders retry. Payload fields used:
+`branchId`, `customerId`, and `tenantId` (payload or envelope).
+
+## D20. The platform answers a second internal lookup: storefront by branch (P5)
+
+**Asked:** "a minimal internal contact-lookup endpoint (name and phone by
+customer id)" in the platform.
+
+**Also needed:** minting an invite needs the storefront, its tenant, the
+salon's name and the tenant's language. The platform knows them; booking-api
+does not (its events carry a branch id only). So the same key-protected,
+default-off controller also serves
+`GET /internal/review-service/storefronts/by-branch/:branchId`. Both routes
+are read-only and touch no review table.
+
+## D21. booking-api: tenant from the booking row, never defaulted (P5)
+
+booking-api's `booking.tenant_id` is nullable ("captured and not yet
+enforced"). The forwarder sends it when present. review-service always takes
+the tenant from the platform's storefront for that branch, and refuses an
+event that names a DIFFERENT tenant (`tenant_mismatch`). A null tenant is
+not a mismatch and not a default: the owner of the branch decides.
+
+## D22. The invite is sent inline, after the commit (P5)
+
+Like the platform listener, the consumer sends right after the invite commits,
+inside the event request. A crash between the commit and the send leaves the
+invite `PENDING`: the redelivery is a duplicate, so nothing resends it. Same
+gap as the platform's; now at least visible
+(`SELECT … WHERE send_status = 'PENDING' AND created_at < now() - interval '10 minutes'`).
+Not auto-retried: a crash DURING the send could have delivered it.
+
+## D23. customer-api's branch starts from local `main`, not `origin/main` (P5)
+
+In gostyle-customer-api, local `main` tracks `imransid/main` (the line the
+plan audited, with "top rated" and the zero-coalesced `review_count`);
+`origin/main` is a different lineage without them. The integration branch
+starts from local `main` (`24aa3e6`). booking-api and the platform branch from
+`origin/main` (their `main` tracks it; the platform's local `main` was 142
+commits behind it, and the branch you had checked out is contained in it).
+
+## D24. Every migration ran inside the local review-db container (P5)
+
+customer-api's tests and its local proof needed its new tables. Per the hard
+limit ("run migrations only against the local review-db container"), nothing
+was migrated in your local `gostyle` database: the Django test runner and the
+proof used throwaway databases inside `review-db` (`customer_api_local`,
+`test_customer_api_local`, `customer_api_proof`). The proof database got the
+platform tables' STRUCTURE (a schema-only `pg_dump` of `gostyle`, no rows)
+plus one synthetic salon. Drop them any time:
+`docker exec review-service-review-db-1 psql -U review -d postgres -c 'DROP DATABASE customer_api_proof'`.
+
+## D25. EraseCustomerReviews has a handler and no trigger yet (P5)
+
+The command exists and is tested (blank the author name and customer id on a
+customer's reviews and invites). No service emits a customer-deleted event
+today, so no consumer is wired; inventing an event name another team must
+then emit would be a contract nobody agreed. Wire it in `COMPLETION_EVENTS`'s
+sibling when the producer exists.

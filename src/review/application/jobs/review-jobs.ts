@@ -4,9 +4,11 @@ import { CommandBus } from '@nestjs/cqrs';
 import type { Job, Queue } from 'bullmq';
 import { AppConfig } from '../../../shared/config/app-config';
 import { RecomputeRatingSummariesCommand } from '../commands/recompute-rating-summaries/recompute-rating-summaries.command';
+import { InviteDelivery } from '../invites/invite-delivery';
 
-export const JOBS_QUEUE = 'review-jobs';
-export const RECOMPUTE_JOB = 'recompute-summaries';
+import { INVITE_RESEND_JOB, JOBS_QUEUE, RECOMPUTE_JOB } from './queues';
+
+export { JOBS_QUEUE, RECOMPUTE_JOB };
 
 /**
  * Scheduled work, on BullMQ: retried with backoff (the push service's
@@ -17,7 +19,10 @@ export const RECOMPUTE_JOB = 'recompute-summaries';
 export class ReviewJobsProcessor extends WorkerHost {
   private static readonly log = new Logger(ReviewJobsProcessor.name);
 
-  constructor(private readonly commands: CommandBus) {
+  constructor(
+    private readonly commands: CommandBus,
+    private readonly invites: InviteDelivery,
+  ) {
     super();
   }
 
@@ -25,6 +30,9 @@ export class ReviewJobsProcessor extends WorkerHost {
     switch (job.name) {
       case RECOMPUTE_JOB:
         return this.commands.execute(new RecomputeRatingSummariesCommand({ trigger: 'nightly' }));
+      // Carries the invite id ONLY; the token is minted afresh inside.
+      case INVITE_RESEND_JOB:
+        return this.invites.resend((job.data as { inviteId: string }).inviteId);
       default:
         ReviewJobsProcessor.log.warn(`unknown job ${job.name}; ignored`);
         return undefined;
