@@ -110,7 +110,7 @@ describe('loadConfig', () => {
       ]),
     );
     expect(problems({ ...base(), INVITE_SENDER: 'sms' })).toEqual([
-      'INVITE_SENDER must be one of: log, whatsapp',
+      'INVITE_SENDER must be one of: log, log_link, whatsapp',
     ]);
   });
 
@@ -120,6 +120,13 @@ describe('loadConfig', () => {
     for (const v of ['1', 'TRUE ', 'yes', 'True', 'true ', 'false', '']) {
       expect(loadConfig({ ...base(), SWAGGER_ENABLED: v }).swaggerEnabled, JSON.stringify(v)).toBe(false);
     }
+  });
+
+  it('allows INVITE_SENDER=log_link outside production only', () => {
+    expect(loadConfig({ ...base(), INVITE_SENDER: 'log_link' }).inviteSender).toBe('log_link');
+    expect(problems({ ...base(), NODE_ENV: 'production', INVITE_SENDER: 'log_link' })).toContain(
+      'INVITE_SENDER=log_link is not allowed in production: it writes review links to the log',
+    );
   });
 
   it('bounds numeric tunables', () => {

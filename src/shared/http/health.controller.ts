@@ -1,5 +1,5 @@
 import { Controller, Get, HttpStatus, Res } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiExcludeController, ApiOperation } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisHealth } from '../redis/redis';
@@ -22,8 +22,10 @@ async function check(probe: () => Promise<number>): Promise<Check> {
 /**
  * Green only when BOTH the database and Redis answer. A service that can read
  * reviews but cannot relay events is not healthy, it is quietly losing time.
+ *
+ * Not in Swagger: Docker and monitoring call it, people do not (D29).
  */
-@ApiTags('health')
+@ApiExcludeController()
 @Controller('health')
 export class HealthController {
   constructor(

@@ -1,6 +1,6 @@
 import { Body, Controller, Get, HttpCode, Post, Query, UseGuards } from '@nestjs/common';
 import { CommandBus, QueryBus } from '@nestjs/cqrs';
-import { ApiOperation, ApiResponse, ApiSecurity, ApiTags } from '@nestjs/swagger';
+import { ApiExcludeEndpoint, ApiOperation, ApiResponse, ApiSecurity, ApiTags } from '@nestjs/swagger';
 import { CurrentServiceCaller, ServiceCallers } from '../../shared/auth/decorators';
 import type { ServiceCaller } from '../../shared/config/app-config';
 import { BookingCompletedConsumer } from '../application/consumers/booking-completed.consumer';
@@ -52,9 +52,11 @@ export class InternalController {
     );
   }
 
+  // Ops-only routes stay out of Swagger; they still answer the ops key (D29).
   @Post('ratings/recompute')
   @HttpCode(200)
   @ServiceCallers('ops')
+  @ApiExcludeEndpoint()
   @ApiOperation({ summary: 'Run the nightly recompute now: recount every storefront, log and repair any drift.' })
   @ApiResponse({ status: 200, description: '{ checked, repaired, differences }' })
   recompute() {
@@ -63,6 +65,7 @@ export class InternalController {
 
   @Get('outbox')
   @ServiceCallers('ops')
+  @ApiExcludeEndpoint()
   @ApiOperation({ summary: 'Outbox depth: pending, stuck, and the age of the oldest pending event.' })
   outbox() {
     return this.relay.stats();

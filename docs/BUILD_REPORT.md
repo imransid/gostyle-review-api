@@ -411,6 +411,12 @@ retention (D18), contact owner (D14), HQ actions (D8).
 - **In-app reviews:** `SubmitInAppReview` at `POST /v1/me/reviews`, still
   redeeming the booking's invite row, which needs the account ↔ customer
   mapping.
+- **Other apps:** a proposal to let any app store its reviews and ratings here
+  (app, subject and proof on every row; app keys, a v2 API and webhooks), with
+  stylist ratings and in-app reviews as part of it:
+  [`MULTI_APP_DESIGN.md`](MULTI_APP_DESIGN.md). It recommends making the
+  tables multi-app **before** P6's backfill, while `review-db` holds no live
+  data. Not decided yet.
 
 ### Known gaps worth watching
 
@@ -594,3 +600,54 @@ docker compose up -d
 curl -s http://127.0.0.1:3352/health        # expect 200, database and redis up
 yarn test:db && yarn test:e2e && yarn proof # expect 41, 41, 23/23
 ```
+
+---
+
+## 10. Since this report (9 Oct 2026)
+
+`main` is now on GitHub (`origin`, `imransid/gostyle-review-api`). Commits
+after this report:
+
+| Commit | What |
+| --- | --- |
+| `5e7e005`, `ea80cc6` | `docker-stack.yml`: the platform JWT secret comes from the `review_jwt_access_secret` Swarm secret |
+| `774fd31` | `SWAGGER_ENABLED=true` serves Swagger in production for a testing window; off by default (D27) |
+| `7d3a6ef` | The unused public rating route `GET /v1/public/storefronts/:id/rating` is removed (D28); the e2e specs read the served rating through the console aggregate |
+| `93d42b8` | [`HOW_IT_WORKS.md`](HOW_IT_WORKS.md): the whole service in plain words, with flow charts |
+
+Also in `docs/`: [`MULTI_APP_DESIGN.md`](MULTI_APP_DESIGN.md), the proposal
+for other apps (section 6, "Later").
+
+Then, for testing by hand ([`TESTING.md`](TESTING.md)):
+
+- `/health`, `POST /internal/ratings/recompute` and `GET /internal/outbox` left
+  out of Swagger; they still answer (D29). Swagger lists 18 routes.
+- `INVITE_SENDER=log_link` writes the review link to the log, refused in
+  production; `yarn test-kit` stands in for gostyle-api, customer-api and the
+  push service (D30). The whole flow in `TESTING.md` was walked with them:
+  28 requests, every answer as the guide states.
+- The e2e harness waits for `/health` to be green after boot. `RedisHealth`
+  connects in the background with `enableOfflineQueue: false`, so a `/health`
+  in the first moments after boot answered 503 when Docker was slow; the
+  contract spec's health test failed that way once. The service's behaviour is
+  unchanged (an outage is still a red `/health`, never a stuck boot).
+
+**The checks section 9 left open, now run** with Docker back, on `7d3a6ef`
+plus the docs:
+
+```
+yarn typecheck   ok
+yarn lint        ok
+yarn test        20 files, 193 tests passed
+yarn test:db      4 files,  41 tests passed
+yarn test:e2e     8 files,  44 tests passed   (new: swagger.e2e-spec.ts)
+yarn proof       23 tests, 23 as declared, 0 not
+```
+
+After the testing changes above: unit **195** (two new: `log_link` refused in
+production, `LogLinkInviteSender` writes the link), DB 41, e2e 44, proofs
+23/23, typecheck and lint clean.
+
+Still open from section 9: rebuild the two images and re-run the containers on
+the final code (`docker compose build review-migrate review-app && docker
+compose up -d`, then `/health`).

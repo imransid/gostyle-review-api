@@ -22,3 +22,22 @@ export class LogInviteSender implements InviteSender {
     return { kind: 'sent', ref: 'log' };
   }
 }
+
+/**
+ * Manual-testing sender: like LogInviteSender, but it DOES write the link, so
+ * a tester can open the review form without WhatsApp (docs/TESTING.md).
+ *
+ * AppConfig refuses INVITE_SENDER=log_link when NODE_ENV=production, so a real
+ * customer's token never reaches a log. The phone is still masked.
+ */
+@Injectable()
+export class LogLinkInviteSender implements InviteSender {
+  private static readonly log = new Logger('InviteSender');
+
+  async send(m: InviteMessage): Promise<SendOutcome> {
+    LogLinkInviteSender.log.log(
+      `INVITE_SENDER=log_link: review link for ${maskPhone(m.phone)} (${m.locale}): ${m.url}`,
+    );
+    return { kind: 'sent', ref: 'log_link' };
+  }
+}

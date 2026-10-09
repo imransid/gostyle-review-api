@@ -9,7 +9,6 @@ afterAll(() => e.close());
 
 /** Plan §5's endpoints, at the paths the front ends already call. */
 const EXPECTED = [
-  'GET /health',
   'POST /v1/public/reviews/{token}',
   'GET /v1/public/review-invites/{token}',
   'GET /v1/public/storefronts/{storefrontId}/reviews',
@@ -27,8 +26,10 @@ const EXPECTED = [
   'POST /v1/platform/reviews/{id}/restore',
   'POST /v1/platform/reviews/{id}/remove',
   'GET /internal/ratings',
-  'POST /internal/ratings/recompute',
 ];
+
+/** Served, but not for people: kept out of the document (D29). */
+const NOT_DOCUMENTED = ['GET /health', 'POST /internal/ratings/recompute', 'GET /internal/outbox'];
 
 describe('the published contract', () => {
   it('serves every endpoint of plan §5 at its documented path', async () => {
@@ -37,6 +38,7 @@ describe('the published contract', () => {
       Object.keys(ops).map((m) => `${m.toUpperCase()} ${p}`),
     );
     for (const route of EXPECTED) expect(served, route).toContain(route);
+    for (const route of NOT_DOCUMENTED) expect(served, route).not.toContain(route);
   });
 
   it('documents the security of every non-public route', async () => {

@@ -19,7 +19,8 @@ import { readFileSync } from 'node:fs';
  */
 
 export type NodeEnv = 'development' | 'test' | 'production';
-export type InviteSenderKind = 'log' | 'whatsapp';
+/** `log_link` prints the review link for manual testing; refused in production. */
+export type InviteSenderKind = 'log' | 'log_link' | 'whatsapp';
 
 /** Who may call review-service's internal routes. One key each. */
 export const SERVICE_CALLERS = ['platform', 'booking-api', 'customer-api', 'ops'] as const;
@@ -206,7 +207,7 @@ export function loadConfig(env: Env, readFile: ReadFile = defaultReadFile): AppC
     problems.push('SERVICE_KEY_* values must all be different: one key per caller');
   }
 
-  const inviteSender = oneOf<InviteSenderKind>('INVITE_SENDER', ['log', 'whatsapp']);
+  const inviteSender = oneOf<InviteSenderKind>('INVITE_SENDER', ['log', 'log_link', 'whatsapp']);
   let whatsapp: WhatsAppSettings | null = null;
   if (inviteSender === 'whatsapp') {
     whatsapp = {
@@ -259,6 +260,10 @@ export function loadConfig(env: Env, readFile: ReadFile = defaultReadFile): AppC
       .map(([caller]) => caller);
     if (short.length > 0) {
       problems.push(`service keys must be at least 32 characters in production: ${short.join(', ')}`);
+    }
+    // A review link in a log line is a working token in a log aggregator.
+    if (inviteSender === 'log_link') {
+      problems.push('INVITE_SENDER=log_link is not allowed in production: it writes review links to the log');
     }
   }
 

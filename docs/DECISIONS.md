@@ -382,3 +382,30 @@ the same stored summary.
 **To change:** if a front end ever needs it, the handler was a single
 `findUnique` on `rating_summary` by storefront id, answered through
 `aggregateOf()` like the console aggregate.
+
+## D29. Ops-only routes are not in Swagger (after P5)
+
+`GET /health`, `POST /internal/ratings/recompute` and `GET /internal/outbox`
+still answer as before (Docker, monitoring and the ops key use them), but they
+carry `@ApiExcludeController` / `@ApiExcludeEndpoint` and are left out of
+`/docs`. Swagger now lists the 18 routes people and other services build
+against. `contract.e2e-spec.ts` checks both: the 18 are documented, the three
+are not. **To change:** remove the decorator.
+
+## D30. `INVITE_SENDER=log_link` and a local test kit, for testing by hand (after P5)
+
+**Problem:** the review link only leaves by WhatsApp, and `INVITE_SENDER=log`
+deliberately never writes it, so nobody could walk the complete flow by hand
+without a WhatsApp number and a running gostyle-api.
+
+**Choice:** a third sender, `log_link`, writes the full link to the log (the
+phone still masked). AppConfig **refuses to start** with it when
+`NODE_ENV=production`, so a real customer's token never reaches a log
+aggregator. `yarn test-kit` (`scripts/test-kit.mjs`) is one local HTTP server
+that stands in for gostyle-api (`/v1/auth/me`, storefront and contact
+lookups), customer-api's event receiver and the push service, and prints
+ready-made staff, read-only staff, other-salon staff and HQ tokens.
+`docs/TESTING.md` walks the whole flow with them.
+
+**Why:** a manual check catches what the automated suites cannot (a confusing
+answer, a missing setting), and it should take minutes, not a staging server.

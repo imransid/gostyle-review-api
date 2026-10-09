@@ -65,6 +65,9 @@ export async function bootApp(extraEnv: Record<string, string> = {}) {
   const app = moduleRef.createNestApplication<NestExpressApplication>({ bufferLogs: true });
   configureApp(app);
   await app.init();
+  // Redis connects in the background (an outage is a red /health, not a
+  // stuck boot), so wait for it here instead of racing it in every spec.
+  await untilHealthy(app);
   const prisma = app.get(PrismaService);
   return {
     app,
@@ -81,6 +84,16 @@ export async function bootApp(extraEnv: Record<string, string> = {}) {
 }
 
 export type E2E = Awaited<ReturnType<typeof bootApp>>;
+
+async function untilHealthy(app: NestExpressApplication, timeoutMs = 10_000): Promise<void> {
+  const until = Date.now() + timeoutMs;
+  for (;;) {
+    const res = await request(app.getHttpServer()).get('/health');
+    if (res.status === 200) return;
+    if (Date.now() > until) throw new Error(`/health still ${res.status} after ${timeoutMs} ms: ${JSON.stringify(res.body)}`);
+    await new Promise((r) => setTimeout(r, 100));
+  }
+}
 
 export async function reset(prisma: PrismaService) {
   await prisma.$executeRawUnsafe(

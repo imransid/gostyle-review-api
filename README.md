@@ -24,6 +24,7 @@ yarn test:db                  # repositories and constraints on the local review
 yarn test:e2e                 # the booted app over HTTP
 yarn proof                    # scripts/proof.sql: inserts that MUST fail
 yarn prisma:check             # schema.prisma and migrations agree (needs SHADOW_DATABASE_URL)
+yarn test-kit                 # stand-ins for gostyle-api, customer-api and push, to test by hand
 ```
 
 The whole stack in containers:
@@ -68,7 +69,7 @@ test/           unit/, db/, e2e/
 | out | storefront by branch, customer contact | gostyle-api `/internal/review-service/*` with `PLATFORM_INTERNAL_KEY` |
 | out | `rating.summary.changed.v1` | outbox relay → customer-api `POST /internal/review-events/` |
 | out | "the salon replied" | outbox relay → push-notification-service `POST /notifications/user`, `eventId = review:<id>:reply` |
-| out | the invite link | WhatsApp Cloud API template (`INVITE_SENDER=whatsapp`) or a masked log line (`log`) |
+| out | the invite link | WhatsApp Cloud API template (`INVITE_SENDER=whatsapp`), a masked log line (`log`), or the full link in the log for testing (`log_link`, refused in production) |
 
 Everything outbound leaves through `outbox_event`, written in the same
 transaction as the change, at least once; every receiver dedupes by event id.

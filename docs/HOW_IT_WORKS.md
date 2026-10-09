@@ -4,7 +4,7 @@ This document explains the review service in plain words: what it does, who
 uses it, every step from a finished booking to a star rating in the app, and
 why each step works the way it does.
 
-You do not need to be technical to read sections 1 to 8. Section 9 is extra
+You do not need to be technical to read sections 1 to 9. Section 10 is extra
 detail for engineers.
 
 **Contents**
@@ -17,8 +17,9 @@ detail for engineers.
 6. [Keeping data safe](#6-keeping-data-safe)
 7. [Questions people often ask](#7-questions-people-often-ask)
 8. [Where the project stands today](#8-where-the-project-stands-today)
-9. [For engineers](#9-for-engineers)
-10. [Words used in this document](#10-words-used-in-this-document)
+9. [Using it for other apps (the plan)](#9-using-it-for-other-apps-the-plan)
+10. [For engineers](#10-for-engineers)
+11. [Words used in this document](#11-words-used-in-this-document)
 
 ---
 
@@ -222,6 +223,9 @@ stateDiagram-v2
   The old link never reached anyone, so replacing it is safe.
 - **Before the switch-over**, the service runs in "log" mode: it writes "would
   send" in its log (with the phone number partly hidden) and sends nothing.
+- **For testing on a laptop**, a "log_link" mode also writes the link itself, so
+  a tester can open the review form without WhatsApp. The service refuses to
+  start in this mode in production. See [`TESTING.md`](TESTING.md).
 
 ### Step 3: The customer writes the review
 
@@ -466,8 +470,10 @@ handled incoming messages is called the **inbox**.
 - **Settings are checked when the service starts.** If anything is missing, it
   refuses to start and lists every missing setting at once (names only, never
   secret values).
-- **The API documentation page** is switched off in production unless
-  `SWAGGER_ENABLED=true` is set for a short testing window.
+- **The API documentation page** (Swagger) is switched off in production
+  unless `SWAGGER_ENABLED=true` is set for a short testing window. It shows the
+  18 routes people and other systems use; the health check and the two ops-only
+  routes work but are left out.
 
 ---
 
@@ -588,11 +594,116 @@ The full checklist, with a check after every step, is in
 - **Erasing a customer's reviews** works as a command, but nothing triggers it
   yet, because no system sends a "customer deleted" message. (D25)
 - **Planned for later:** rating individual stylists, and writing a review from
-  inside the app while logged in.
+  inside the app while logged in. Both are part of the plan in
+  [section 9](#9-using-it-for-other-apps-the-plan).
 
 ---
 
-## 9. For engineers
+## 9. Using it for other apps (the plan)
+
+> This is a **plan**. Nothing in this section is built yet. The full design
+> for engineers is in [`MULTI_APP_DESIGN.md`](MULTI_APP_DESIGN.md).
+
+Today the review service only knows GoStyle salons. The plan is to let **any
+app** keep its reviews and ratings here. For example: GoStyle rating each
+stylist, or a different app rating restaurants, drivers or products.
+
+### Three new ideas
+
+| Idea | In plain words | GoStyle example | Another app example |
+| --- | --- | --- | --- |
+| **App** | Which product is using the service | GoStyle | A food delivery app |
+| **Subject** | The thing being rated | A salon page, later a stylist | A restaurant, a rider |
+| **Proof** | The real event that gives the right to review | A completed booking | A delivered order |
+
+The main rule becomes **one proof, one review**. It is today's "one booking,
+one review" with a more general name.
+
+### What stays the same for every app
+
+- Stars are whole numbers from 1 to 5.
+- One review per proof, forever.
+- The review link works once and expires.
+- Only visible reviews are shown and counted.
+- A business can reply and report, but cannot hide or delete a review.
+- A moderator decides, always with a written reason.
+
+These rules are what make every rating trustworthy, so no app can switch them
+off.
+
+### What each app can choose
+
+- Which languages, how long a comment can be, and how long the link lasts.
+- Its own list of report reasons.
+- Who sends the review link: the app itself, or the review service by WhatsApp
+  (later SMS or email).
+- Whether a review shows at once (like GoStyle) or only after a moderator
+  approves it.
+- Who moderates: the app's own team, or one central team.
+
+### How an app joins
+
+```mermaid
+flowchart LR
+    subgraph Other["The other app"]
+        AB["Its backend"]
+        U["Its customers"]
+    end
+    RS["Review service<br/>every row tagged with its app"]
+    AB -->|"1. what can be rated, and who owns it"| RS
+    AB -->|"2. a real event happened: allow one review"| RS
+    U -->|"3. write the review, by link or in the app"| RS
+    RS -->|"4. webhook: this rating changed"| AB
+```
+
+1. The app gets its own secret key.
+2. Its backend tells the service what can be rated (its restaurants, its
+   riders) and which business owns each one.
+3. When a real event happens (an order is delivered), its backend asks the
+   service to allow one review.
+4. The customer writes the review, through a link or inside the app while
+   logged in.
+5. Whenever a rating changes, the service sends the app a signed message (a
+   **webhook**), so the app can show the new rating in its own lists. This is
+   how customer-api gets GoStyle's ratings today.
+
+### Keeping apps apart
+
+- Every row in the database carries the app it belongs to.
+- The service decides the app from the key or login only, never from what the
+  request says.
+- One app can never see, change or count another app's reviews.
+- One busy app cannot slow the others down: each has its own limits, and its
+  webhooks are retried on their own.
+
+### What GoStyle notices
+
+Nothing. GoStyle becomes app number one, and every route it uses today keeps
+working the same way.
+
+### When
+
+| Step | What | When |
+| --- | --- | --- |
+| Tables ready for many apps | Add app, subject and proof to the database, with GoStyle filled in as the first app. No visible change. | **Before P6**, while the database is still empty |
+| P6 | The planned move of GoStyle's reviews | After that |
+| The app platform | App keys, the new API, webhooks | When a second app is agreed |
+| The second app | Register it and connect it | With that app |
+
+**Why change the tables before P6?** The review database has no real data yet,
+so changing it now is simple. After the move, every table would have to change
+while real customers are using it.
+
+### Still to decide
+
+- Are the other apps GoStyle products, or apps of other companies?
+- Who sends the review link for them?
+- Does any app need reviews approved before they show?
+- Do we change the tables before P6?
+
+---
+
+## 10. For engineers
 
 ### All routes (21)
 
@@ -624,6 +735,8 @@ The full checklist, with a check after every step, is in
   [Step 5](#step-5-the-salon-replies-or-reports).
 - **HQ** routes need a `platform_admin` JWT plus `storefront.review_moderation`.
 - **Internal** routes need the caller's own key in `x-service-key`.
+- `GET /health`, `POST /internal/ratings/recompute` and `GET /internal/outbox`
+  are not shown in Swagger (D29). Swagger lists the other 18.
 - The console and HQ paths are the ones the front ends already call on
   gostyle-api, so at switch-over they only change their base URL.
 - There is no public rating route. The app reads ratings from customer-api
@@ -680,15 +793,19 @@ database and confirm the database refuses each one.
 ### Other documents
 
 - [`README.md`](../README.md): how to run it locally, and all commands.
-- [`DECISIONS.md`](DECISIONS.md): every choice made while building it (D1 to D28),
+- [`TESTING.md`](TESTING.md): how we test, including the complete flow by hand,
+  step by step in Swagger.
+- [`DECISIONS.md`](DECISIONS.md): every choice made while building it (D1 to D30),
   with the reason and how to change it.
 - [`BUILD_REPORT.md`](BUILD_REPORT.md): what was built and tested in P1 to P5,
   and the step-by-step P6 checklist.
 - [`PLAN.html`](PLAN.html): the original plan.
+- [`MULTI_APP_DESIGN.md`](MULTI_APP_DESIGN.md): the plan to let other apps use
+  the service (a proposal, not built).
 
 ---
 
-## 10. Words used in this document
+## 11. Words used in this document
 
 | Word | Meaning |
 | --- | --- |
@@ -706,3 +823,7 @@ database and confirm the database refuses each one.
 | **HQ** | GoStyle's own moderation team. |
 | **Service key** | A long secret one system sends to prove which system it is. |
 | **JWT** | The login token a staff member's browser sends with each request. |
+| **App** (plan) | A product that uses the review service. GoStyle is the first. |
+| **Subject** (plan) | Anything that can be rated: a salon page, a stylist, a restaurant. |
+| **Proof** (plan) | The real event that gives the right to one review: a booking, an order, a trip. |
+| **Webhook** | A signed message the service sends to another system's web address when something changes. |

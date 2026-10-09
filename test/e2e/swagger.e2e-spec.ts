@@ -32,7 +32,6 @@ describe('Swagger in production, SWAGGER_ENABLED=true', () => {
     expect(res.status).toBe(200);
     expect(Object.keys(res.body.paths)).toEqual(
       expect.arrayContaining([
-        '/health',
         '/v1/public/reviews/{token}',
         '/v1/storefront/reviews',
         '/v1/platform/review-reports',

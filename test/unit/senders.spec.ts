@@ -4,7 +4,7 @@ import { ReplyPushHandler, replyPushEventId } from '../../src/review/application
 import { CustomerApiRatingSink } from '../../src/review/infrastructure/http/customer-api-rating.sink';
 import { PushNotificationClient } from '../../src/review/infrastructure/http/push-notification.client';
 import { BookingSourcePushRecipients } from '../../src/review/infrastructure/http/push-recipients';
-import { LogInviteSender } from '../../src/review/infrastructure/senders/log-invite-sender';
+import { LogInviteSender, LogLinkInviteSender } from '../../src/review/infrastructure/senders/log-invite-sender';
 import { maskPhone } from '../../src/review/infrastructure/senders/mask-phone';
 import { WhatsAppInviteSender } from '../../src/review/infrastructure/senders/whatsapp-invite-sender';
 
@@ -29,6 +29,14 @@ describe('maskPhone and LogInviteSender', () => {
     vi.spyOn(Logger.prototype, 'log').mockImplementation((m: any) => void logs.push(String(m)));
     expect(await new LogInviteSender().send(message)).toEqual({ kind: 'sent', ref: 'log' });
     expect(logs.join()).not.toContain('TOKEN123');
+    expect(logs.join()).not.toContain('+971501234567');
+  });
+
+  it('LogLinkInviteSender writes the link for manual testing, still masking the number', async () => {
+    const logs: string[] = [];
+    vi.spyOn(Logger.prototype, 'log').mockImplementation((m: any) => void logs.push(String(m)));
+    expect(await new LogLinkInviteSender().send(message)).toEqual({ kind: 'sent', ref: 'log_link' });
+    expect(logs.join()).toContain('https://gostyle.app/review/TOKEN123');
     expect(logs.join()).not.toContain('+971501234567');
   });
 });

@@ -61,7 +61,7 @@ import { PUSH_RECIPIENTS, PUSH_SENDER } from './domain/ports/push-sender.port';
 import { CustomerApiRatingSink } from './infrastructure/http/customer-api-rating.sink';
 import { PushNotificationClient } from './infrastructure/http/push-notification.client';
 import { BookingSourcePushRecipients } from './infrastructure/http/push-recipients';
-import { LogInviteSender } from './infrastructure/senders/log-invite-sender';
+import { LogInviteSender, LogLinkInviteSender } from './infrastructure/senders/log-invite-sender';
 import { WhatsAppInviteSender } from './infrastructure/senders/whatsapp-invite-sender';
 import { PrismaRatingSummaryRepository } from './infrastructure/persistence/prisma-rating-summary.repository';
 import { PrismaReviewInviteRepository } from './infrastructure/persistence/prisma-review-invite.repository';
@@ -130,14 +130,16 @@ const QUERY_HANDLERS = [
     PlatformDirectoryClient,
     { provide: STOREFRONT_DIRECTORY, useExisting: PlatformDirectoryClient },
     { provide: CONTACT_DIRECTORY, useExisting: PlatformDirectoryClient },
-    // The invite channel: INVITE_SENDER=log in development, whatsapp in production.
+    // The invite channel: INVITE_SENDER=log in development, whatsapp in
+    // production, log_link for manual testing (never in production).
     LogInviteSender,
+    LogLinkInviteSender,
     WhatsAppInviteSender,
     {
       provide: INVITE_SENDER,
-      inject: [AppConfig, LogInviteSender, WhatsAppInviteSender],
-      useFactory: (config: AppConfig, log: LogInviteSender, wa: WhatsAppInviteSender) =>
-        config.inviteSender === 'whatsapp' ? wa : log,
+      inject: [AppConfig, LogInviteSender, LogLinkInviteSender, WhatsAppInviteSender],
+      useFactory: (config: AppConfig, log: LogInviteSender, logLink: LogLinkInviteSender, wa: WhatsAppInviteSender) =>
+        config.inviteSender === 'whatsapp' ? wa : config.inviteSender === 'log_link' ? logLink : log,
     },
     { provide: PUSH_SENDER, useClass: PushNotificationClient },
     { provide: PUSH_RECIPIENTS, useClass: BookingSourcePushRecipients },
